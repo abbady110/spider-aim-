@@ -4,9 +4,9 @@
 
 الأولوية لثبات التصويب ونتائج الإصابات المقاسة، مع فصل أخطاء التحكم عن الشبكة والأداء والحرارة. هذه نسخة مدرّب مبنية على أدلة يدخلها اللاعب؛ لا يوجد نموذج رؤية مدرّب أو قراءة مباشرة لبيانات PUBG أو تأكيد من خوادمها للإصابات.
 
-**حالة التسليم الحالية:** كُتبت الشيفرة وملفات الاختبار وWorkflow محليًا، لكن بيئة التنفيذ لا تحتوي Flutter/Dart أو Android SDK، ولم يُنفّذ `flutter analyze` أو `flutter test` أو بناء APK. منع اتصال البيئة تنزيل الأدوات، وأعادت محاولة كتابة GitHub الخطأ `403 Resource not accessible by integration`. لم تُرفع التغييرات أو يُنشأ Artifact على GitHub. لذلك لم تتحقق شروط اكتمال البناء بعد. راجع [سجل التحقق](docs/VERIFICATION.md).
+**حالة التسليم الحالية:** رُفع المشروع المحلي إلى GitHub بعد إصلاح صلاحيات الكتابة. نجح `flutter analyze` بلا مشكلات، ونجح **111 اختبارًا**، وبُني Android APK بحجم **31.4 MB** في [تشغيل GitHub Actions الناجح](https://github.com/abbady110/spider-aim-/actions/runs/37621731959). [تنزيل APK](https://github.com/abbady110/spider-aim-/actions/runs/37621731959/artifacts/11482581407). ما زال اختبار الأجهزة الفعلية وقياس التحسن أثناء اللعب مطلوبين. راجع [سجل التحقق](docs/VERIFICATION.md).
 
-## ما نُفّذ في الشيفرة — بانتظار التحقق بالبناء
+## الميزات المنفذة
 
 - واجهة عربية RTL داكنة ومتجاوبة، وملف مستقل لكل جهاز.
 - اكتشاف معلومات الجهاز والشاشة والبطارية والحالة الحرارية عبر APIs عامة متاحة. القيم غير المتاحة تبقى `UNKNOWN`، خصوصًا معدل أخذ عينات اللمس وFPS الخاص بلعبة أخرى.
@@ -15,7 +15,7 @@
 - دورة موافقة على التجربة، وBackup كامل لبيانات الإعدادات المسجلة، ونسخة تجريبية، ومقارنة، ثم موافقة نهائية منفصلة.
 - تخزين SQLite محلي مع إصدارات مخطط قاعدة البيانات، وسجل الإصدارات والنسخ الاحتياطية ونتائج الاختبارات، واستعادة بيانات النسخة السابقة.
 - تشخيص إرشادي للإصابات والوفيات، ومعايرة الحركة والقنابل، وتقارير بطارية، وحسابات هبوط مبنية على مدخلات اللاعب.
-- ملف GitHub Actions لإجراء التحليل والاختبارات وبناء Android APK عند رفع المشروع وتشغيله بنجاح؛ لا يوجد Artifact منشور حاليًا.
+- GitHub Actions للتحليل والاختبارات وبناء Android APK؛ نجح التشغيل ورُفع APK وسجل التحقق كـArtifacts.
 
 ## حدود مهمة
 
@@ -47,7 +47,7 @@
 
 المتطلبات: Flutter **3.35.7 stable**، Java **17**، وAndroid SDK. البناء محصور في ARM/ARM64، للهواتف والأجهزة اللوحية الفعلية.
 
-استخدم مجلد المشروع المحلي الذي يحتوي هذه التغييرات. أو نفّذ أوامر Clone أدناه بعد رفع التغييرات إلى GitHub؛ المستودع البعيد لم يستقبلها خلال هذا التسليم.
+استخدم مجلد المشروع المحلي، أو نزّل الشيفرة المرفوعة إلى GitHub:
 
 ```bash
 git clone https://github.com/abbady110/spider-aim-.git
@@ -67,11 +67,13 @@ build/app/outputs/flutter-apk/app-release.apk
 
 ينشئ سكربت bootstrap أدوات Gradle الثنائية ومشروع Xcode وموارده المفقودة من نسخة Flutter المثبتة داخل مجلد مؤقت، وينسخ الملفات المفقودة فقط. لا يستبدل شيفرة Android أو iOS أو Dart الموجودة.
 
-APK الناتج عند نجاح البناء سيكون مخصصًا للتجربة والتثبيت الجانبي وفق إعداد التوقيع الحالي؛ يحتاج إصدار المتجر إلى مفتاح توقيع إصدار خاص يحتفظ به المالك. لا يوجد APK مبني ضمن هذا التسليم. لا تُضف مفاتيح أو كلمات مرور إلى المستودع.
+APK المبني مخصص للتجربة والتثبيت الجانبي وفق إعداد توقيع التطوير الحالي؛ تحتاج الإصدارات الموزعة والتحديثات المتوافقة إلى مفتاح توقيع إصدار ثابت يحتفظ به المالك. لا تُضف مفاتيح أو كلمات مرور إلى المستودع.
 
 ## تنزيل APK من GitHub Actions
 
 افتح [Actions → Android APK](https://github.com/abbady110/spider-aim-/actions/workflows/android.yml)، ثم أحدث تشغيل ناجح. من **Artifacts** نزّل `spider-aim-android-apk`، وفك ZIP للوصول إلى `app-release.apk`. يحتوي `spider-aim-verification` على سجلات التحليل والاختبارات والبناء والتغطية عند توفرها. يلزم تسجيل الدخول إلى GitHub لتنزيل Artifacts، ومدة الاحتفاظ 30 يومًا.
+
+نتائج البناء المؤكد بتاريخ 2026-10-07: [APK](https://github.com/abbady110/spider-aim-/actions/runs/37621731959/artifacts/11482581407) و[سجلات التحقق](https://github.com/abbady110/spider-aim-/actions/runs/37621731959/artifacts/11482581411). ينتهي الاحتفاظ بهذه الملفات في 2026-11-06؛ أعد تشغيل Workflow لإنشاء ملفات جديدة بعد ذلك.
 
 ينفّذ Workflow: Checkout → Java/Android/Flutter setup → `flutter pub get` → `flutter analyze` → `flutter test` → APK build → artifact upload. وجود ملف Workflow وحده ليس إثبات نجاح البناء؛ راجع نتيجة التشغيل الفعلية وسجلاته.
 
@@ -87,9 +89,9 @@ APK الناتج عند نجاح البناء سيكون مخصصًا للتجر
 
 SPIDER AIM is a local Flutter aim-and-control calibration coach for physical Android phones/tablets and iPhone/iPad. The default policy is `NON_GYRO`, `TOUCH_ONLY`, gyroscope disabled, and ADS gyroscope disabled. Android is the first intended build-validation target.
 
-**Current delivery status:** source, tests, and the CI workflow have been implemented locally, but no Flutter/Dart or Android SDK is installed in the execution environment. `flutter analyze`, `flutter test`, and APK compilation have **not run**. Environment connectivity prevented tool installation, and the GitHub write attempt returned `403 Resource not accessible by integration`. No changes or APK artifacts have been uploaded to GitHub. The build definition of done is therefore **not yet met**. See [Verification](docs/VERIFICATION.md).
+**Current delivery status:** the existing local project has been pushed to GitHub after write permissions were repaired. `flutter analyze` reported no issues, **111 tests passed**, and a **31.4 MB Android APK** was built in the [successful GitHub Actions run](https://github.com/abbady110/spider-aim-/actions/runs/37621731959). [Download APK](https://github.com/abbady110/spider-aim-/actions/runs/37621731959/artifacts/11482581407). Physical-device validation and measured gameplay improvement remain outstanding. See [Verification](docs/VERIFICATION.md).
 
-The source implements an Arabic RTL dark interface, per-device profiles, official-API device/battery/thermal observations, weapon/scope/attachment/distance calibration contexts, evidence-based recommendations, movement/throwables review, death and hit-registration differential diagnostics, battery reports, and a local SQLite-backed settings-version workflow. These implementations still require compilation, test execution, and physical-device validation.
+The source implements an Arabic RTL dark interface, per-device profiles, official-API device/battery/thermal observations, weapon/scope/attachment/distance calibration contexts, evidence-based recommendations, movement/throwables review, death and hit-registration differential diagnostics, battery reports, and a local SQLite-backed settings-version workflow. Static analysis, automated tests, and Android APK compilation passed; physical-device validation remains pending.
 
 The implemented coaching uses structured player-entered evidence and deterministic analysis. It is not a trained computer-vision model, game telemetry integration, aimbot, or external PUBG controller. Unknown measurements remain unknown. No live game-mode verification provider is available: live capture/background/game analysis stays fail-closed. A user's declaration of a past Unranked session is explicitly a manual review context, not automatic game-mode detection.
 
@@ -105,9 +107,11 @@ Aim stability and observed hit outcomes have priority. Faster sensitivity alone 
 
 ### Build and APK
 
-Use the delivered local project with Flutter **3.35.7 stable**, Java **17**, and Android SDK, then run `bash scripts/verify.sh`. The clone commands above apply once these changes have actually been pushed. On successful compilation, the APK will be `build/app/outputs/flutter-apk/app-release.apk`. The source configures development signing for sideload testing; production distribution requires the owner's private release signing configuration. No APK has been produced in this delivery.
+Clone the GitHub repository or use the existing local project with Flutter **3.35.7 stable**, Java **17**, and Android SDK, then run `bash scripts/verify.sh`. The APK output is `build/app/outputs/flutter-apk/app-release.apk`. The source configures development signing for sideload testing; production distribution and consistent update signatures require the owner's stable private release key.
 
 On [GitHub Actions](https://github.com/abbady110/spider-aim-/actions/workflows/android.yml), open a successful **Android APK** run and download **spider-aim-android-apk** from its Artifacts section. Verification logs are uploaded as **spider-aim-verification**, including failed-run logs when present. Artifacts are retained for 30 days. Check an actual workflow run before treating a build as validated.
+
+The verified 2026-10-07 run provides [APK](https://github.com/abbady110/spider-aim-/actions/runs/37621731959/artifacts/11482581407) and [verification logs](https://github.com/abbady110/spider-aim-/actions/runs/37621731959/artifacts/11482581411); these artifacts expire on 2026-11-06. Rerun the workflow to generate new artifacts after expiry.
 
 iOS native sources are included; the bootstrap script fills missing Xcode project/assets from the pinned Flutter SDK without replacing those sources. iOS builds/signing require macOS, Xcode, and Apple provisioning. Desktop/web and emulator deployment are unsupported. Unit/widget tests in CI are supported and do not imply emulator product support.
 
