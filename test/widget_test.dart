@@ -29,6 +29,26 @@ class _FailingDevice extends DeviceService {
   Future<DeviceSnapshot> read() async => throw StateError('Device report unavailable');
 }
 
+/// Widget tests must not wait on real platform messages inside fake async.
+class _UnavailableCapture extends CaptureService {
+  const _UnavailableCapture();
+
+  @override
+  Future<Map<String, dynamic>> capabilities() async => {'supported': false};
+
+  @override
+  Stream<Map<String, dynamic>> get events => const Stream.empty();
+
+  @override
+  Future<Map<String, dynamic>> start() async => {'supported': false, 'started': false};
+
+  @override
+  Future<void> stop() async {}
+
+  @override
+  Future<void> requestUsageAccess() async {}
+}
+
 class _Capture extends CaptureService {
   _Capture({this.supported = true, this.consentGranted = true});
   final bool supported;
@@ -102,7 +122,7 @@ Future<CoachController> _controller({bool supported = true, CaptureService? capt
     store: MemoryCoachStore(),
     deviceService: _Device(supported: supported),
     gameModeGuard: GameModeGuard(now: () => recognitionFixtureTime),
-    captureService: capture,
+    captureService: capture ?? const _UnavailableCapture(),
   );
   await controller.initialize();
   return controller;
@@ -149,7 +169,10 @@ void main() {
 
   testWidgets('failed device initialization remains blocked', (tester) async {
     _phone(tester);
-    final controller = CoachController(store: MemoryCoachStore(), deviceService: const _FailingDevice());
+    final controller = CoachController(
+      store: MemoryCoachStore(), deviceService: const _FailingDevice(),
+      captureService: const _UnavailableCapture(),
+    );
     await controller.initialize();
     addTearDown(controller.dispose);
     await tester.pumpWidget(SpiderAimApp(controller: controller));
@@ -443,6 +466,44 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
   });
+
+  for (final competitive in [false, true]) {
+    testWidgets('returning to coach revokes safe proof and preserves competitive=$competitive', (tester) async {
+      _phone(tester);
+      final capture = _Capture();
+      final controller = await _controller(capture: capture);
+      addTearDown(() async {
+        controller.dispose();
+        await capture.frames.close();
+      });
+      await controller.startAutomaticRecognition();
+      capture.emitWarehouseEvidence();
+      await tester.pumpWidget(SpiderAimApp(controller: controller));
+      await tester.pumpAndSettle();
+      expect(controller.guard.allowed, isTrue);
+      if (competitive) {
+        capture.frames.add({
+          'type': 'frame', 'sessionId': 'widget-capture', 'sequence': 5,
+          'frameFingerprint': 'synthetic-flight-pixels',
+          'timestampMs': recognitionFixtureTime.millisecondsSinceEpoch,
+          'captureAuthorized': true, 'foregroundPackage': 'com.tencent.ig',
+          'foregroundVerified': true,
+          'cues': [{'id': 'airplane', 'confidence': .99, 'region': 'center'}],
+        });
+        await tester.pumpAndSettle();
+      }
+      controller.didChangeAppLifecycleState(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      expect(controller.captureRunning, isTrue);
+      expect(controller.guard.allowed, isFalse);
+      expect(controller.guard.mode, competitive
+          ? GameMode.competitiveBlocked : GameMode.unknownBlocked);
+      expect(controller.competitiveLatched, competitive);
+      await controller.stopAutomaticRecognition();
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   testWidgets('baseline form has empty sensitivity and rejects missing values', (tester) async {
     final controller = await _controller();
