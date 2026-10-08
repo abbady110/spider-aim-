@@ -64,6 +64,7 @@ jobs:
           flutter analyze --fatal-infos 2>&1 | tee build/verification/analyze.log
 
       - name: Unit and widget tests
+        timeout-minutes: 5
         run: flutter test --coverage --reporter expanded 2>&1 | tee build/verification/tests.log
 
       - name: Build physical-device Android APK
@@ -72,6 +73,9 @@ jobs:
       - name: Native capture safety tests
         working-directory: android
         run: ./gradlew :app:testReleaseUnitTest 2>&1 | tee ../build/verification/native-capture-tests.log
+
+      - name: Audit APK network permissions
+        run: bash scripts/check_apk_permissions.sh 2>&1 | tee build/verification/apk-permissions.log
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

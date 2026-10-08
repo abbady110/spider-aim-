@@ -8,13 +8,14 @@ Current source review date: **2026-10-08 (UTC)**.
 
 | Check | Current status |
 | --- | --- |
-| `python3 scripts/check_source.py` | PASS — 208 offline structural checks; no Flutter/native compilation |
+| `python3 scripts/check_source.py` | PASS — 218 offline structural checks; no Flutter/native compilation |
 | `git diff --check` | PASS — whitespace validation only |
 | `flutter pub get` | PENDING current revision CI |
 | `flutter analyze --fatal-infos` | PENDING current revision CI |
 | `flutter test --coverage` | PENDING current revision CI |
 | `./gradlew :app:testReleaseUnitTest` | PENDING current revision CI; native capture safety tests |
 | Android APK compilation and upload | PENDING current revision CI |
+| Built APK network permission audit | PENDING current revision CI; dependency permissions stripped in source |
 | MediaProjection / Usage Access consent on physical Android | NOT RUN |
 | Real PUBG HUD/locale/device recognition validation | NOT RUN |
 | Measured capture CPU/battery/FPS overhead | NOT RUN |
@@ -23,6 +24,8 @@ Current source review date: **2026-10-08 (UTC)**.
 Current source implements six automatic modes: `TRAINING_SAFE`, `WAREHOUSE_SAFE`, `ARENA_SAFE`, `SAFE_UNRANKED`, `COMPETITIVE_BLOCKED`, and `UNKNOWN_BLOCKED`. The Android path uses consented MediaProjection, a media-projection foreground service, UsageStats foreground checks, and bundled local Latin OCR. Manual selections cannot authorize any operation. Synthetic automated fixtures exercise confidence, independent frames, temporal checks, competitive latching, revocation, and transaction gates; they do not establish accuracy on real screenshots.
 
 The source checker validates only repository structure and selected invariants, including the explicit official capture-permission/service allowlist. Its result is not Dart/Flutter compilation, a native API test, or proof that the merged APK manifest has no additional library declarations.
+
+The source manifest explicitly removes `INTERNET` and `ACCESS_NETWORK_STATE` permissions from transitive dependencies. CI also inspects permissions in the built APK using `aapt` and refuses artifact upload if either network permission survives manifest merging. The OCR model is bundled and needs no network connection.
 
 ## Historical baseline: 2026-10-07 GitHub delivery and verified CI
 

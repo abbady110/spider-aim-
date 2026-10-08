@@ -49,6 +49,7 @@ for unsupported in ["web", "windows", "linux", "macos"]:
     check(not (ROOT / unsupported).exists(), f"Unsupported platform scaffold: {unsupported}")
 
 android_attribute = "{http://schemas.android.com/apk/res/android}"
+tools_attribute = "{http://schemas.android.com/tools}"
 manifest = ET.parse(ROOT / "android/app/src/main/AndroidManifest.xml")
 allowed_permissions = {
     "android.permission.FOREGROUND_SERVICE",
@@ -56,9 +57,24 @@ allowed_permissions = {
     "android.permission.POST_NOTIFICATIONS",
     "android.permission.PACKAGE_USAGE_STATS",
 }
-permissions = [node.attrib.get(f"{android_attribute}name")
-               for node in manifest.getroot()
-               if node.tag.startswith("uses-permission")]
+required_network_removals = {
+    "android.permission.INTERNET",
+    "android.permission.ACCESS_NETWORK_STATE",
+}
+permission_nodes = [node for node in manifest.getroot()
+                    if node.tag.startswith("uses-permission")]
+removal_nodes = [node for node in permission_nodes
+                 if node.attrib.get(f"{tools_attribute}node") == "remove"]
+removed_permissions = [node.attrib.get(f"{android_attribute}name") for node in removal_nodes]
+check(set(removed_permissions) == required_network_removals,
+      f"Both dependency network permissions must be removed explicitly: {removed_permissions}")
+check(len(removed_permissions) == 2, "Exactly two distinct network permission removals are required")
+for node in removal_nodes:
+    check(node.tag == "uses-permission" and set(node.attrib) == {
+        f"{android_attribute}name", f"{tools_attribute}node",
+    }, "Network permission removals must be unconditional, with no SDK or library selectors")
+permissions = [node.attrib.get(f"{android_attribute}name") for node in permission_nodes
+               if node.attrib.get(f"{tools_attribute}node") != "remove"]
 check(set(permissions) == allowed_permissions,
       f"Capture permission declarations differ from the official allowlist: {permissions}")
 check(len(permissions) == len(set(permissions)), "Duplicate Android permission declaration")
@@ -67,8 +83,13 @@ for other_manifest in ROOT.glob("android/app/src/*/AndroidManifest.xml"):
     for node in declared.getroot():
         if node.tag.startswith("uses-permission"):
             permission = node.attrib.get(f"{android_attribute}name")
-            check(permission in allowed_permissions,
-                  f"Unexpected permission in {other_manifest}: {permission}")
+            operation = node.attrib.get(f"{tools_attribute}node")
+            if operation == "remove":
+                check(permission in required_network_removals,
+                      f"Unexpected permission removal in {other_manifest}: {permission}")
+            else:
+                check(operation is None and permission in allowed_permissions,
+                      f"Unexpected permission or merger operation in {other_manifest}: {permission}")
 
 services = manifest.findall(".//service")
 check(len(services) == 1, "Only the official capture foreground service may be declared")
@@ -137,6 +158,7 @@ database.close()
 
 workflow = (ROOT / ".github/workflows/android.yml").read_text()
 for command in ["flutter pub get", "flutter analyze", "flutter test", "flutter build apk",
+                "./gradlew :app:testReleaseUnitTest", "bash scripts/check_apk_permissions.sh",
                 ":app:testReleaseUnitTest",
                 "actions/upload-artifact@", "android-arm,android-arm64"]:
     check(command in workflow, f"CI missing {command}")
