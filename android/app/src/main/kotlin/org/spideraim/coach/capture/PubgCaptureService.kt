@@ -74,12 +74,13 @@ class PubgCaptureService : Service() {
         override fun onStop() { stopCapture("CAPTURE_PERMISSION_REVOKED") }
 
         override fun onCapturedContentResize(newWidth: Int, newHeight: Int) {
-            if (Build.VERSION.SDK_INT >= 34 && !destroyed && newWidth > 0 && newHeight > 0) {
+            if (Build.VERSION.SDK_INT >= 34 && !destroyed && !competitiveSuspended && newWidth > 0 && newHeight > 0) {
                 resize(newWidth, newHeight)
             }
         }
 
         override fun onCapturedContentVisibilityChanged(isVisible: Boolean) {
+            if (destroyed || competitiveSuspended) return
             capturedContentVisible = isVisible
             if (!isVisible && !destroyed) {
                 previousRespawn = false
@@ -228,6 +229,7 @@ class PubgCaptureService : Service() {
         }
 
     private fun resize(originalWidth: Int, originalHeight: Int) {
+        if (destroyed || competitiveSuspended) return
         val size = scaledSize(originalWidth, originalHeight)
         if (size.first == width && size.second == height) return
         try {
