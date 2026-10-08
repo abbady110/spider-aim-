@@ -90,15 +90,15 @@ class _BatteryPageState extends State<BatteryPage> {
         MetricCard(label: 'حالة الشحن', value: device?.charging == null ? 'غير متاحة' : device!.charging! ? 'قيد الشحن' : 'غير متصل', icon: Icons.power_outlined),
       ]),
       const SizedBox(height: 20),
-      NoticePanel(text: '${plan.reason}\nالتحليل المباشر غير نشط. لا يُعدّل التطبيق FPS أو الرسوميات أو معدل التحديث أو استجابة اللمس.'),
+      NoticePanel(text: '${plan.reason}\nالتعرف على وضع اللعب يخضع لدليل الشاشة والأذونات. لا يُعدّل التطبيق FPS أو الرسوميات أو معدل التحديث أو استجابة اللمس.'),
       const SizedBox(height: 20),
       Wrap(spacing: 12, runSpacing: 12, children: [
         FilledButton.icon(onPressed: allowed && !active ? () => _reading(context, 'start', DateTime.now().microsecondsSinceEpoch.toString()) : null, icon: const Icon(Icons.play_arrow), label: const Text('بدء قياس جلسة البطارية')),
         OutlinedButton.icon(onPressed: allowed && !completed && sessionId != null ? () => _reading(context, 'end', sessionId) : null, icon: const Icon(Icons.stop_circle_outlined), label: const Text('إنهاء الجلسة وعرض التقرير')),
       ]),
       const SizedBox(height: 20),
-      if (active) NoticePanel(text: 'بدأ القياس ${dateLabel(lastStart?['timestamp'])}. لا يوجد تسجيل فيديو. أعد التصريح بنوع الجلسة عند الرجوع من اللعبة، ثم أنهِ القياس. معدل التفريغ يتطلب 5 دقائق على الأقل دون شحن.'),
-      if (!controller.guard.allowed) const NoticePanel(warning: true, text: 'الجلسة غير معروفة أو مصنفة. حدّد جلسة غير مصنفة في صفحة الأمان لتسجيل تقرير.'),
+      if (active) NoticePanel(text: 'بدأ القياس ${dateLabel(lastStart?['timestamp'])}. لا يوجد حفظ فيديو. إنهاء القياس يحتاج سماحًا من التعرف التلقائي الحالي؛ اختيار سجل يدوي لا يفتح القفل. معدل التفريغ يتطلب 5 دقائق على الأقل دون شحن.'),
+      if (!controller.guard.allowed) const NoticePanel(warning: true, text: 'الوضع غير معروف أو تنافسي أو الدليل منقطع. تسجيل التقرير مقفول حتى يتحقق التعرف التلقائي من وضع مسموح. يمكن عرض التقارير المحفوظة دون تغيير القفل.'),
       if (report == null && !active) const EmptyPanel(title: 'تقرير من قراءتين فعليتين', message: 'ابدأ جلسة ثم أنهها لحساب المدة وتغير مستوى البطارية. لا يمكن نسبة استهلاك الجهاز إلى PUBG من قراءات البطارية وحدها.', icon: Icons.battery_saver_outlined),
       if (report != null) ...[
         SpiderCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

@@ -207,6 +207,7 @@ class _BaselineFormState extends State<BaselineForm> {
 
   @override
   Widget build(BuildContext context) => FormSheet(
+    controller: widget.controller,
     title: 'توثيق الإعدادات الحالية',
     subtitle: 'انسخ القيم التي تستخدمها الآن من PUBG. هذا حفظ مرجعي محلي؛ لا يغيّر اللعبة.',
     formKey: _form,
@@ -319,6 +320,7 @@ class _MetricsFormState extends State<MetricsForm> {
 
   @override
   Widget build(BuildContext context) => FormSheet(
+    controller: widget.controller,
     title: _testing ? 'نتائج النسخة التجريبية' : 'تسجيل عينة اختبار',
     subtitle: 'أدخل نتائج اختبار حقيقي غير مصنف، بنفس السلاح والسكوب والملحقات والمسافة. لا تخمّن القياسات المفقودة.',
     formKey: _form,
@@ -417,6 +419,7 @@ class _ProposalFormState extends State<ProposalForm> {
 
   @override
   Widget build(BuildContext context) => FormSheet(
+    controller: widget.controller,
     title: 'اقتراح تعديل قابل للاختبار',
     subtitle: 'لن يُطبّق أو يُعتمد أي شيء هنا. يحفظ التطبيق اقتراحًا مدعومًا بعيناتك لمراجعته أولًا.',
     formKey: _form,
@@ -501,6 +504,7 @@ class _ObservationFormState extends State<ObservationForm> {
 
   @override
   Widget build(BuildContext context) => FormSheet(
+    controller: widget.controller,
     title: widget.title,
     subtitle: 'سجل ما لاحظته في اختبار مسموح. الملاحظات اليدوية لا تثبت سببًا تقنيًا بمفردها.',
     formKey: _form,
@@ -538,7 +542,8 @@ class _ObservationFormState extends State<ObservationForm> {
 }
 
 class FormSheet extends StatelessWidget {
-  const FormSheet({super.key, required this.title, required this.subtitle, required this.formKey, required this.children, required this.onSave, required this.saveLabel, required this.saving, this.error});
+  const FormSheet({super.key, required this.controller, required this.title, required this.subtitle, required this.formKey, required this.children, required this.onSave, required this.saveLabel, required this.saving, this.error});
+  final CoachController controller;
   final String title;
   final String subtitle;
   final GlobalKey<FormState> formKey;
@@ -549,7 +554,9 @@ class FormSheet extends StatelessWidget {
   final String? error;
 
   @override
-  Widget build(BuildContext context) => SingleChildScrollView(
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: controller,
+    builder: (context, _) => SingleChildScrollView(
     padding: const EdgeInsets.all(24),
     child: Form(
       key: formKey,
@@ -561,12 +568,18 @@ class FormSheet extends StatelessWidget {
           Text(subtitle, style: const TextStyle(color: spiderMuted, height: 1.8)),
           const SizedBox(height: 24),
           ...children,
+          if (!controller.guard.allowed) ...[
+            const SizedBox(height: 14),
+            const NoticePanel(warning: true, icon: Icons.lock_outline,
+              text: 'توقف الحفظ: التعرف التلقائي لا يؤكد وضعًا مسموحًا الآن. اختيار سجل يدوي لا يتجاوز القفل.'),
+          ],
           if (error != null) ...[const SizedBox(height: 14), NoticePanel(text: error!, warning: true)],
           const SizedBox(height: 22),
-          FilledButton(onPressed: saving ? null : onSave, child: saving ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2)) : Text(saveLabel)),
+          FilledButton(onPressed: saving || controller.busy || !controller.guard.allowed ? null : onSave, child: saving ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2)) : Text(saveLabel)),
           const SizedBox(height: 20),
         ],
       ),
+    ),
     ),
   );
 }

@@ -3,7 +3,8 @@ import '../profiles/settings_policy.dart';
 import '../storage/coach_store.dart';
 import '../testing/comparison_policy.dart';
 
-/// Durable offline coaching workflow. This class never writes to PUBG.
+/// Durable coaching workflow gated by automatic screen-mode verification.
+/// Metrics/settings remain manually entered; this class never writes to PUBG.
 class CalibrationWorkflow {
   CalibrationWorkflow({required this.store, required this.guard, required this.deviceId,
     DateTime Function()? now}) : _now = now ?? DateTime.now;
@@ -23,7 +24,7 @@ class CalibrationWorkflow {
         throw StateError('Device mismatch');
       }
       f(s);
-    });
+    }, authorizeCommit: guard.requireAllowed);
   }
   List<dynamic> _list(StateMap s, String key) => s[key] as List<dynamic>;
   StateMap _approved(StateMap s) => s['approved'] as StateMap;
@@ -93,7 +94,12 @@ class CalibrationWorkflow {
     }
     _list(s, 'observations').add({'id': _id('observation'), 'kind': kind,
       'data': cloneState(data), 'timestamp': _timestamp, 'mode': guard.mode.code,
-      'source': 'MANUAL_OFFLINE', 'approvedVersion': _approved(s)['number'],
+      'source': 'MANUAL_METRICS_AUTOMATIC_MODE',
+      'modeConfidence': guard.recognition.confidence,
+      'modeEvidence': guard.recognition.evidence,
+      'modeVerifiedAt': guard.recognition.lastVerified?.toIso8601String(),
+      'captureSession': guard.recognition.sessionId,
+      'approvedVersion': _approved(s)['number'],
       'testingId': s['testingId']});
   });
 
@@ -181,7 +187,7 @@ class CalibrationWorkflow {
 
   Future<StateMap> recordTest(String id, Map<String,double> metrics,
     {required bool manualApplied}) => _change((s) {
-    if (!{GameMode.warehouse,GameMode.safeUnranked}.contains(guard.mode)) {
+    if (!{GameMode.warehouseSafe,GameMode.arenaSafe,GameMode.safeUnranked}.contains(guard.mode)) {
       throw StateError('اختبار المقارنة يلزم Warehouse أو Unranked.');
     }
     final p = _proposal(s,id);

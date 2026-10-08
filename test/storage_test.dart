@@ -8,6 +8,8 @@ import 'package:spider_aim/game_mode_guard/game_mode_guard.dart';
 import 'package:spider_aim/storage/coach_store.dart';
 import 'package:spider_aim/storage/sqlite_coach_store.dart';
 
+import 'support/recognized_guard.dart';
+
 const _device = 'phone-a';
 const _context = 'M416|3x|Compensator|50';
 const _key = '$_context::ads';
@@ -27,7 +29,7 @@ Map<String, double> _metrics({bool improved = false}) => {
   'batteryDrain': 12,
 };
 
-Future<String> _startTrial(CalibrationWorkflow workflow) async {
+Future<String> _startTrial(CalibrationWorkflow workflow, {bool start = true}) async {
   await workflow.saveBaseline({_key: 31});
   for (var i = 0; i < 5; i++) {
     await workflow.addObservation('aim', {'context': _context, 'metrics': _metrics()});
@@ -36,8 +38,25 @@ Future<String> _startTrial(CalibrationWorkflow workflow) async {
     reason: 'Overshoot', evidence: '5 manual observations', sampleCount: 5,
     expected: 'Better stability', risk: 'Slower target acquisition');
   final id = (state['proposals'] as List).last['id'] as String;
-  await workflow.approveForTest(id);
+  if (start) {
+    await workflow.approveForTest(id);
+  }
   return id;
+}
+
+/// Simulates a native revocation event after SQL writes complete, without
+/// changing the production guard or bypassing its final authorization callback.
+class _CommitHookSqliteStore extends SqliteCoachStore {
+  _CommitHookSqliteStore(super.db);
+  void Function()? beforeCommit;
+
+  @override
+  Future<StateMap> transaction(String deviceId, StateMutation mutate,
+    {void Function()? authorizeCommit}) => super.transaction(deviceId, mutate,
+      authorizeCommit: () {
+        beforeCommit?.call();
+        authorizeCommit?.call();
+      });
 }
 
 void main() {
@@ -73,9 +92,9 @@ void main() {
     await store.saveDevice(_device, {'name': 'Phone', 'touchSamplingRateHz': null});
     await store.saveDevice('tablet-b', {'name': 'Tablet'});
     final phone = CalibrationWorkflow(store: store,
-      guard: GameModeGuard()..declareOfflineMode(GameMode.warehouse), deviceId: _device);
+      guard: recognizedGuard(), deviceId: _device);
     final tablet = CalibrationWorkflow(store: store,
-      guard: GameModeGuard()..declareOfflineMode(GameMode.warehouse), deviceId: 'tablet-b');
+      guard: recognizedGuard(), deviceId: 'tablet-b');
     await phone.saveBaseline({_key: 31});
     expect(((await tablet.read())['approved'] as Map)['settings'], isEmpty);
     await tablet.saveBaseline({_key: 55});
@@ -87,14 +106,14 @@ void main() {
 
   test('reopening mid-trial retains approved, testing and immutable backup pointers', () async {
     var store = await open();
-    var guard = GameModeGuard()..declareOfflineMode(GameMode.warehouse);
+    var guard = recognizedGuard();
     var workflow = CalibrationWorkflow(store: store, guard: guard, deviceId: _device);
     final id = await _startTrial(workflow);
     final before = await workflow.read();
     await store.close();
 
     store = await open();
-    guard = GameModeGuard();
+    guard = GameModeGuard(now: () => recognitionFixtureTime);
     workflow = CalibrationWorkflow(store: store, guard: guard, deviceId: _device);
     expect(await workflow.read(), before);
     expect((before['approved'] as Map)['settings'], {_key: 31.0});
@@ -102,7 +121,7 @@ void main() {
     expect((before['backups'] as List).length, 1);
     expect((before['versions'] as List).last['status'], 'TESTING');
     await expectLater(() => workflow.approveFinal(id), throwsStateError);
-    guard.declareOfflineMode(GameMode.warehouse);
+    observeSafeSession(guard);
     await expectLater(() => workflow.approveFinal(id), throwsStateError);
 
     await workflow.recordTest(id,
@@ -120,7 +139,7 @@ void main() {
   test('SQLite triggers prohibit direct backup modification and deletion', () async {
     final store = await open();
     final workflow = CalibrationWorkflow(store: store,
-      guard: GameModeGuard()..declareOfflineMode(GameMode.warehouse), deviceId: _device);
+      guard: recognizedGuard(), deviceId: _device);
     await _startTrial(workflow);
     final rows = await store.db.query('backups');
     final id = rows.single['id'];
@@ -133,7 +152,7 @@ void main() {
 
   test('restore undo link survives closing and reopening SQLite', () async {
     var store = await open();
-    final guard = GameModeGuard()..declareOfflineMode(GameMode.warehouse);
+    final guard = recognizedGuard();
     var workflow = CalibrationWorkflow(store: store, guard: guard, deviceId: _device);
     await workflow.saveBaseline({_key: 31});
     const other = 'AKM|Red Dot|None|20::ads';
@@ -154,7 +173,7 @@ void main() {
   test('backup edits or removal through profile transactions are rejected atomically', () async {
     final store = await open();
     final workflow = CalibrationWorkflow(store: store,
-      guard: GameModeGuard()..declareOfflineMode(GameMode.warehouse), deviceId: _device);
+      guard: recognizedGuard(), deviceId: _device);
     await _startTrial(workflow);
     final before = await workflow.read();
     await expectLater(() => store.transaction(_device, (state) {
@@ -182,6 +201,47 @@ void main() {
     }), throwsStateError);
     expect(await store.read(_device), before);
     expect(await store.db.query('events'), events);
+  });
+
+  test('late capture revocation rolls back SQLite trial, backup and audit writes', () async {
+    final databaseStore = await open();
+    final store = _CommitHookSqliteStore(databaseStore.db);
+    final guard = recognizedGuard();
+    final workflow = CalibrationWorkflow(store: store, guard: guard, deviceId: _device);
+    final id = await _startTrial(workflow, start: false);
+    final before = await workflow.read();
+    final events = await store.db.query('events');
+    var boundaryReached = false;
+    store.beforeCommit = () {
+      boundaryReached = true;
+      guard.stopCaptureSession();
+    };
+    await expectLater(() => workflow.approveForTest(id), throwsStateError);
+    expect(boundaryReached, isTrue);
+    expect(await workflow.read(), before);
+    expect(await store.db.query('backups'), isEmpty);
+    expect(await store.db.query('events'), events);
+    expect((await workflow.read())['testingId'], isNull);
+  });
+
+  test('late competition rolls back SQLite final approval without losing the trial', () async {
+    final databaseStore = await open();
+    final store = _CommitHookSqliteStore(databaseStore.db);
+    final guard = recognizedGuard();
+    final workflow = CalibrationWorkflow(store: store, guard: guard, deviceId: _device);
+    final id = await _startTrial(workflow);
+    final passed = await workflow.recordTest(id,
+      {..._metrics(improved: true), 'sampleCount': 5}, manualApplied: true);
+    final backups = await store.db.query('backups');
+    final events = await store.db.query('events');
+    store.beforeCommit = () => observeCompetitiveSession(guard);
+    await expectLater(() => workflow.approveFinal(id), throwsStateError);
+    expect(guard.mode, GameMode.competitiveBlocked);
+    expect(await workflow.read(), passed);
+    expect(await store.db.query('backups'), backups);
+    expect(await store.db.query('events'), events);
+    expect(((await workflow.read())['approved'] as Map)['settings'], {_key: 31.0});
+    expect((await workflow.read())['testingId'], id);
   });
 
   test('schema v1 migrates additively without dropping approved or trial state', () async {

@@ -1,7 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:spider_aim/battery/battery_thermal_intelligence.dart';
+import 'package:spider_aim/game_mode_guard/game_mode_guard.dart';
 import 'package:spider_aim/profiles/settings_policy.dart';
 import 'package:spider_aim/testing/comparison_policy.dart';
+
+import 'support/recognized_guard.dart';
 
 Map<String, double> _metrics() => {
   'aimStability': 60,
@@ -150,6 +153,23 @@ void main() {
 
   group('battery workload safety', () {
     const engine = BatteryThermalIntelligence();
+
+    test('passive scheduling requires automatically recognized capture evidence', () {
+      final guard = recognizedGuard();
+      final policy = PassiveAnalysisPolicy(guard);
+      expect(policy.offlinePlan(thermal: ThermalLevel.nominal).samplesPerMinute,
+        greaterThan(0));
+      guard.stopCaptureSession();
+      for (final mode in GameMode.values) {
+        guard.declareOfflineMode(mode);
+        final plan = policy.offlinePlan(thermal: ThermalLevel.nominal);
+        expect(plan.workload, SpiderWorkload.stopped);
+        expect(plan.samplesPerMinute, 0);
+      }
+      observeCompetitiveSession(guard);
+      expect(policy.offlinePlan(thermal: ThermalLevel.nominal).workload,
+        SpiderWorkload.stopped);
+    });
 
     test('all automatic plans preserve game FPS, graphics, refresh and touch', () {
       for (final thermal in ThermalLevel.values) {

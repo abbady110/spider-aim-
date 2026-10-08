@@ -15,7 +15,10 @@ StateMap emptyState(String deviceId) => {
 
 abstract interface class CoachStore {
   Future<StateMap> read(String deviceId);
-  Future<StateMap> transaction(String deviceId, StateMutation mutate);
+  /// Recheck volatile permissions after preparation and immediately before
+  /// committing. Throwing from [authorizeCommit] rolls back the whole mutation.
+  Future<StateMap> transaction(String deviceId, StateMutation mutate,
+    {void Function()? authorizeCommit});
   Future<void> saveDevice(String deviceId, Map<String, Object?> data);
   Future<void> close();
 }
@@ -27,14 +30,17 @@ class MemoryCoachStore implements CoachStore {
   @override
   Future<StateMap> read(String deviceId) async => cloneState(_states[deviceId] ?? emptyState(deviceId));
   @override
-  Future<StateMap> transaction(String deviceId, StateMutation mutate) {
+  Future<StateMap> transaction(String deviceId, StateMutation mutate,
+    {void Function()? authorizeCommit}) {
     final result = Completer<StateMap>();
     _tail = _tail.then((_) {
       try {
         final next = cloneState(_states[deviceId] ?? emptyState(deviceId));
         mutate(next);
-        _states[deviceId] = cloneState(next);
-        result.complete(cloneState(next));
+        final committed = cloneState(next);
+        authorizeCommit?.call();
+        _states[deviceId] = committed;
+        result.complete(cloneState(committed));
       } catch (e, s) {
         result.completeError(e, s);
       }

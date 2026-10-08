@@ -8,3 +8,4 @@ flutter pub get
 flutter analyze --fatal-infos
 flutter test --coverage
 flutter build apk --release --target-platform android-arm,android-arm64
+(cd android && ./gradlew :app:testReleaseUnitTest)

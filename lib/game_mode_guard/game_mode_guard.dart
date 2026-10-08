@@ -1,47 +1,41 @@
-enum GameMode { safeUnranked, training, warehouse, rankedBlocked, unknownBlocked }
+import '../game_mode_recognition/automatic_mode_recognizer.dart';
+import '../game_mode_recognition/recognition_models.dart';
+import 'game_mode.dart';
 
-extension GameModeLabel on GameMode {
-  String get code => switch (this) {
-    GameMode.safeUnranked => 'SAFE_UNRANKED',
-    GameMode.training => 'TRAINING',
-    GameMode.warehouse => 'WAREHOUSE',
-    GameMode.rankedBlocked => 'RANKED_BLOCKED',
-    GameMode.unknownBlocked => 'UNKNOWN_BLOCKED',
-  };
-}
+export 'game_mode.dart';
 
-/// An offline session declaration is NOT verification of the active PUBG mode.
-/// Live capture/analysis remains unavailable until a trusted integration exists.
+/// Sole authorization boundary. A mode choice never grants permission: only
+/// fresh, multi-frame evidence from an authorized native capture can unlock.
 class GameModeGuard {
-  GameModeGuard({DateTime Function()? now}) : _now = now ?? DateTime.now;
-  final DateTime Function() _now;
-  GameMode _mode = GameMode.unknownBlocked;
-  DateTime? _declaredAt;
-  GameMode get mode {
-    if (_declaredAt != null &&
-        _now().difference(_declaredAt!) >= const Duration(minutes: 20)) {
-      invalidate();
-    }
-    return _mode;
-  }
-  bool get allowed => const {
-    GameMode.safeUnranked, GameMode.training, GameMode.warehouse,
-  }.contains(mode);
-  bool get liveAllowed => false;
-  void declareOfflineMode(GameMode value) {
-    _mode = value;
-    _declaredAt = _now();
-  }
-  void invalidate() {
-    _mode = GameMode.unknownBlocked;
-    _declaredAt = null;
-  }
-  void requireAllowed() {
+  GameModeGuard({DateTime Function()? now, AutomaticModeRecognizer? recognizer})
+    : _recognizer = recognizer ?? AutomaticModeRecognizer(now: now);
+
+  final AutomaticModeRecognizer _recognizer;
+  RecognitionDecision get recognition => _recognizer.decision;
+  GameMode get mode => recognition.mode;
+  bool get allowed => recognition.allowed;
+  bool get liveAllowed => allowed;
+  bool get competitiveLatched => _recognizer.battleRoyaleLatched;
+
+  /// Called by the capture controller after official screen consent succeeds.
+  void beginCaptureSession(String id) => _recognizer.beginSession(id);
+  RecognitionDecision observeFrame(ScreenFrameEvidence frame) =>
+      _recognizer.ingest(frame);
+  void stopCaptureSession() => _recognizer.stopSession();
+  void invalidate() => stopCaptureSession();
+  void invalidateEvidence(String reason) => _recognizer.invalidateEvidence(reason);
+
+  /// Legacy callers cannot override UNKNOWN or COMPETITIVE. Kept as a no-op
+  /// so this invariant remains explicit and regression-testable.
+  void declareOfflineMode(GameMode mode) {}
+
+  void requireAllowed([String operation = 'العملية']) {
     if (!allowed) {
-      throw StateError('الوضع مصنف أو غير معروف. المراجعة متاحة لنتائج جلسة غير مصنفة فقط.');
+      throw StateError('$operation مقفول: ${mode.code}. يلزم تحقق تلقائي حديث '
+          'من وضع آمن، وليس تصريحًا يدويًا.');
     }
   }
-  void requireLiveAllowed() {
-    throw StateError('لا يوجد مصدر موثوق للتحقق من وضع PUBG؛ التحليل المباشر مقفول.');
-  }
+
+  void requireLiveAllowed([String operation = 'التحليل المباشر']) =>
+      requireAllowed(operation);
 }

@@ -2,6 +2,11 @@
     <uses-feature android:name="android.hardware.touchscreen" android:required="true" />
     <uses-feature android:name="android.hardware.telephony" android:required="false" />
     <uses-feature android:name="android.hardware.sensor.gyroscope" android:required="false" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Granted exclusively by the user in Android's Usage Access settings. -->
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" />
     <application
         android:label="SPIDER AIM"
         android:name="${applicationName}"
@@ -24,6 +29,11 @@
             </intent-filter>
         </activity>
         <meta-data android:name="flutterEmbedding" android:value="2" />
+        <service
+            android:name=".capture.PubgCaptureService"
+            android:exported="false"
+            android:stopWithTask="true"
+            android:foregroundServiceType="mediaProjection" />
     </application>
     <queries>
         <intent>

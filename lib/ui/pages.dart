@@ -11,15 +11,8 @@ import 'battery_page.dart';
 import 'components.dart';
 import 'forms.dart';
 import 'landing_page.dart';
+import 'recognition_panel.dart';
 import 'theme.dart';
-
-String modeLabel(GameMode mode) => switch (mode) {
-  GameMode.safeUnranked => 'Unranked • تصريح يدوي',
-  GameMode.training => 'Training • تصريح يدوي',
-  GameMode.warehouse => 'Warehouse • تصريح يدوي',
-  GameMode.rankedBlocked => 'Ranked • مقفول',
-  GameMode.unknownBlocked => 'الوضع غير معروف • مقفول',
-};
 
 const _engineMetricLabels = {
   'trackingStability': 'ثبات التتبع',
@@ -28,6 +21,11 @@ const _engineMetricLabels = {
   'hitAccuracy': 'الإصابات من عدد الطلقات',
   'thermalSeverity': 'شدة الحرارة',
   'batteryDrainPerHour': 'التفريغ في الساعة',
+};
+
+const _observationKindLabels = {
+  'aim': 'التصويب', 'movement': 'الحركة', 'throwables': 'الرميات',
+  'death': 'الوفاة', 'battery': 'البطارية', 'hit': 'الإصابات', 'landing': 'الهبوط',
 };
 
 String _aimMetricLabel(String key) =>
@@ -59,8 +57,8 @@ class CoachPage extends StatelessWidget {
   Widget _column(List<Widget> children) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children);
   Widget _gap([double height = 20]) => SizedBox(height: height);
   Widget _guardNotice() => controller.guard.allowed
-      ? const NoticePanel(text: 'مراجعة محلية لنتائج جلسة صرّحت بأنها غير مصنفة. لا يوجد تحقق مباشر من PUBG؛ التحليل المباشر والتقاط الشاشة مقفولان.')
-      : const NoticePanel(warning: true, icon: Icons.lock_outline, text: 'المعايرة مقفولة لأن الوضع مصنف أو غير معروف. حدّد نوع جلسة الاختبار التي تراجع نتائجها من صفحة الأمان. لا تستخدم هذا التصريح لتشغيل تحليل أثناء مباراة.');
+      ? const NoticePanel(text: 'رصد المحرك وضعًا مسموحًا من عدة إطارات حديثة. السماح مؤقت ويرتبط بأدلة الشاشة؛ تغير الوضع أو انقطاع الالتقاط يعيد القفل. موافقتك وBackup والاختبار تظل إلزامية لأي تعديل.')
+      : const NoticePanel(warning: true, icon: Icons.lock_outline, text: 'المعايرة مقفولة: الوضع مجهول أو تنافسي أو الدليل غير كافٍ. حالة الأمان يحددها التعرف التلقائي فقط. أزرار السجلات لا تفتح المعايرة؛ راجع الأذونات والدليل في صفحة الأمان.');
 
   @override
   Widget build(BuildContext context) => switch (index) {
@@ -103,11 +101,13 @@ class CoachPage extends StatelessWidget {
           Text(settings.isEmpty ? 'ابدأ بتوثيق إعداداتك ونتائج اختبارك الحقيقي.' : 'إعداداتك المعتمدة محفوظة. قارن النتائج قبل اتخاذ أي قرار.', style: const TextStyle(color: Color(0xFFBDCFD0), height: 1.7)),
           _gap(22),
           Wrap(spacing: 12, runSpacing: 12, children: [
-            FilledButton.icon(onPressed: () => onNavigate(controller.guard.allowed ? 2 : 13), icon: const Icon(Icons.my_location), label: Text(controller.guard.allowed ? 'بدء مراجعة المعايرة' : 'تحديد جلسة الاختبار')),
+            FilledButton.icon(onPressed: () => onNavigate(controller.guard.allowed ? 2 : 13), icon: const Icon(Icons.my_location), label: Text(controller.guard.allowed ? 'بدء مراجعة المعايرة' : 'حالة التعرف التلقائي')),
             OutlinedButton.icon(onPressed: () => onNavigate(3), icon: const Icon(Icons.tune), label: const Text('إعداداتي الحالية')),
           ]),
         ]),
       ),
+      _gap(),
+      RecognitionPanel(controller: controller),
       _gap(),
       ResponsiveCards(children: [
         MetricCard(label: 'آخر ثبات تصويب', value: reading(lastMetrics['aimStability']), icon: Icons.my_location, caption: 'قياس أدخله المستخدم • لا توجد درجة افتراضية'),
@@ -122,7 +122,8 @@ class CoachPage extends StatelessWidget {
         const DetailRow('ملف اللاعب', 'NON-GYRO / TOUCH ONLY'),
         const DetailRow('الجيروسكوب وADS Gyro', 'معطلان دائمًا'),
         DetailRow('الجلسة', modeLabel(controller.guard.mode)),
-        const DetailRow('التحليل المباشر', 'مقفول • لا تحقق موثوق من وضع اللعبة'),
+        DetailRow('حارس التحليل المباشر', controller.guard.liveAllowed ? 'وضع مسموح وفق الأدلة الحالية' : 'مقفول'),
+        const DetailRow('تحليل التصويب من الفيديو', 'غير مطبق؛ التعرف الحالي يحدد وضع اللعب فقط'),
         DetailRow('الحالة الحرارية', device?.thermal ?? 'UNKNOWN'),
         DetailRow('النسخة التجريبية', state['testingId'] == null ? 'لا يوجد اختبار جارٍ' : 'محفوظة • تحتاج نتائج وقرارًا نهائيًا'),
         DetailRow('آخر SPIDER MOVEMENT SCORE', _movementScore()),
@@ -438,7 +439,7 @@ class CoachPage extends StatelessWidget {
       SpiderCard(child: Column(children: [
         DetailRow('المراجعات المحفوظة', '${rows.length}'),
         const DetailRow('السبب المؤكد', 'غير محسوم • مراجعات يدوية'),
-        const DetailRow('تحليل شاشة تلقائي', 'غير متاح • التحليل المباشر مقفول'),
+        const DetailRow('تحليل الوفاة من الشاشة', 'غير مطبق؛ التعرف التلقائي الحالي يحدد وضع اللعب فقط'),
         const DetailRow('Hit Registration من السيرفر', 'غير متاح عبر API رسمي'),
       ])),
       if (report != null) ...[
@@ -604,19 +605,30 @@ class CoachPage extends StatelessWidget {
   }
 
   Widget _safety(BuildContext context) => _column([
-    const PageHeading(title: 'الأمان وقفل Ranked', subtitle: 'UNKNOWN_BLOCKED افتراضيًا. تصريح المستخدم يفتح مراجعة نتائج جلسة سابقة فقط.'),
+    const PageHeading(title: 'الأمان وقفل Ranked', subtitle: 'UNKNOWN_BLOCKED افتراضيًا. السماح يأتي من التعرف التلقائي المتكرر فقط، ولا يوجد فتح يدوي.'),
+    RecognitionPanel(controller: controller, showControls: true),
+    _gap(),
+    const NoticePanel(text: 'يُفحص PUBG عندما يكون هو التطبيق الأمامي. عند العودة إلى SPIDER AIM لا يُمنح سماح جديد: يصبح الوضع UNKNOWN أو يبقى القفل التنافسي محفوظًا. عمليات الحفظ والمعايرة مقفولة، والسجلات السابقة متاحة للقراءة فقط.'),
+    _gap(),
+    const NoticePanel(warning: true, text: 'Battle Royale / Ranked / Competitive تُبقي المعايرة مقفولة. ظهور دليل Battle Royale يثبت قفلًا للجلسة؛ اختيار سجل أو شاشة غامضة لاحقة لا يمحوانه. لا يُمنح وضع مسموح من غياب علامة تنافسية وحده.'),
+    _gap(),
     SpiderCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      StatusPill(text: modeLabel(controller.guard.mode), good: controller.guard.allowed),
-      _gap(20),
-      const Text('أي جلسة تراجع نتائجها؟', style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold)),
+      const Text('عرض نتائج سابقة فقط', style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold)),
       _gap(10),
-      const Text('اختيارك تصريح يدوي وليس اكتشافًا موثوقًا لوضع PUBG الحالي. عند مغادرة التطبيق أو انتهاء التصريح يعود القفل إلى UNKNOWN.', style: TextStyle(color: spiderMuted, height: 1.8)),
+      const Text('الأزرار التالية تصفّي السجل المحفوظ للقراءة فقط. لا تغيّر الوضع المكتشف ولا درجة الثقة ولا تفتح معايرة أو تحليلًا أو نسخة تجريبية.', style: TextStyle(color: spiderMuted, height: 1.8)),
       _gap(20),
       Wrap(spacing: 12, runSpacing: 12, children: [
-        for (final mode in [GameMode.training, GameMode.warehouse, GameMode.safeUnranked]) OutlinedButton.icon(onPressed: controller.busy ? null : () => _run(context, () => controller.selectMode(mode), 'فُتحت مراجعة محلية لنتائج الجلسة المصرّح بها.'), icon: const Icon(Icons.check_circle_outline), label: Text(mode == GameMode.training ? 'نتائج Training' : mode == GameMode.warehouse ? 'نتائج Warehouse' : 'نتائج Unranked')),
-        FilledButton.tonalIcon(onPressed: () => _run(context, () => controller.selectMode(GameMode.rankedBlocked)), icon: const Icon(Icons.lock), label: const Text('Ranked • قفل كامل')),
-        TextButton(onPressed: () => _run(context, () => controller.selectMode(GameMode.unknownBlocked)), child: const Text('الوضع غير معروف')),
+        for (final mode in [GameMode.trainingSafe, GameMode.warehouseSafe, GameMode.arenaSafe, GameMode.safeUnranked])
+          OutlinedButton.icon(
+            onPressed: controller.busy ? null : () => _run(context, () => controller.selectMode(mode)),
+            icon: const Icon(Icons.history),
+            label: Text(historyModeLabel(mode)),
+          ),
       ]),
+      if (controller.reviewMode != null) ...[
+        _gap(18),
+        _historicalResults(controller.reviewMode!),
+      ],
     ])),
     _gap(),
     const SpiderCard(child: Column(children: [
@@ -624,12 +636,40 @@ class CoachPage extends StatelessWidget {
       DetailRow('نوع الإدخال', 'TOUCH_ONLY'),
       DetailRow('ADS Gyroscope', 'DISABLED'),
       DetailRow('تطبيق إعدادات PUBG', 'يدوي من المستخدم فقط'),
-      DetailRow('التقاط الشاشة والتحليل المباشر', 'مقفولان؛ لا تكامل موثوق للوضع'),
+      DetailRow('تعرف وضع اللعب', 'OCR محلي لعينات الشاشة بعد موافقة النظام'),
+      DetailRow('قراءة التطبيق الأمامي', 'إذن Usage Access الرسمي على Android'),
+      DetailRow('حفظ أو رفع الشاشة', 'غير موجود'),
       DetailRow('تحكم آلي بالتصويب أو الحركة', 'غير موجود'),
       DetailRow('التخزين', 'محلي على الجهاز'),
       DetailRow('خفض FPS أو جودة PUBG تلقائيًا', 'غير مسموح'),
     ])),
     _gap(),
-    const NoticePanel(text: 'لا صلاحيات Root أو Accessibility، ولا تعديل ذاكرة أو ملفات اللعبة أو حزم الشبكة. تُعرض الرميات فقط ضمن الرؤية الرسمية. الجهاز الجديد يبدأ بملف مستقل، وأي نقص في الدليل يبقى غير محسوم.'),
+    const NoticePanel(text: 'لا صلاحيات Root أو Accessibility، ولا تعديل ذاكرة أو ملفات اللعبة أو حزم الشبكة. التقاط الشاشة لا يمنح التطبيق معرفة بحالة السيرفر؛ عند نقص الدليل أو تضاربه يبقى القفل مغلقًا.'),
   ]);
+
+  Widget _historicalResults(GameMode mode) {
+    final legacyCode = switch (mode) {
+      GameMode.trainingSafe => 'TRAINING',
+      GameMode.warehouseSafe => 'WAREHOUSE',
+      _ => mode.code,
+    };
+    final rows = observations.where((row) => row['mode'] == mode.code || row['mode'] == legacyCode).toList();
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(historyModeLabel(mode), style: const TextStyle(fontWeight: FontWeight.bold, color: spiderTeal)),
+      DetailRow('النتائج المحفوظة', '${rows.length}'),
+      const DetailRow('وضع العرض', 'قراءة فقط • لا يغيّر قفل الأمان'),
+      if (rows.isEmpty)
+        const Text('لا توجد نتائج محفوظة لهذا الاختيار.', style: TextStyle(color: spiderMuted)),
+      for (final row in rows.reversed.take(10))
+        ExpansionTile(
+          tilePadding: EdgeInsets.zero,
+          title: Text('${_observationKindLabels[row['kind']] ?? row['kind']} • ${dateLabel(row['timestamp'])}'),
+          children: [
+            DetailRow('المصدر المسجّل', '${row['source'] ?? 'غير متاح'}'),
+            for (final entry in jsonMap(row['data']).entries)
+              DetailRow(metricLabels[entry.key] ?? entry.key, reading(entry.value)),
+          ],
+        ),
+    ]);
+  }
 }

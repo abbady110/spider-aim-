@@ -56,7 +56,8 @@ class SqliteCoachStore implements CoachStore {
     return state;
   }
   @override
-  Future<StateMap> transaction(String deviceId, StateMutation mutate) => db.transaction((txn) async {
+  Future<StateMap> transaction(String deviceId, StateMutation mutate,
+    {void Function()? authorizeCommit}) => db.transaction((txn) async {
     final rows = await txn.query('profiles', where: 'device_id = ?', whereArgs: [deviceId]);
     final next = rows.isEmpty ? emptyState(deviceId) : _decode(rows.first['payload'] as String, deviceId);
     mutate(next);
@@ -86,7 +87,12 @@ class SqliteCoachStore implements CoachStore {
     }
     await txn.insert('profiles', {'device_id': deviceId, 'payload': jsonEncode(next)}, conflictAlgorithm: ConflictAlgorithm.replace);
     await txn.insert('events', {'device_id': deviceId, 'timestamp': DateTime.now().toUtc().toIso8601String(), 'payload': jsonEncode({'approved': (next['approved'] as Map)['number'], 'testingId': next['testingId'], 'versions': (next['versions'] as List).length})});
-    return cloneState(next);
+    final committed = cloneState(next);
+    // A capture/competitive event can arrive during any awaited SQL write.
+    // Keep this final authorization inside the transaction so denial rolls
+    // back profile, backup, candidate, and audit rows together.
+    authorizeCommit?.call();
+    return committed;
   });
   @override
   Future<void> saveDevice(String deviceId, Map<String, Object?> data) async {

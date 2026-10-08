@@ -3,6 +3,8 @@ import 'package:spider_aim/core/calibration_workflow.dart';
 import 'package:spider_aim/game_mode_guard/game_mode_guard.dart';
 import 'package:spider_aim/storage/coach_store.dart';
 
+import 'support/recognized_guard.dart';
+
 const _context = 'M416|3x|Compensator|50';
 const _key = '$_context::ads';
 const _device = 'physical-phone-a';
@@ -40,14 +42,19 @@ String _proposalId(StateMap s) => _latestProposal(s)['id'] as String;
 class _FailingStore extends MemoryCoachStore {
   bool fail = false;
   void Function()? beforeMutation;
+  void Function()? beforeCommit;
   @override
-  Future<StateMap> transaction(String deviceId, StateMutation mutate) {
+  Future<StateMap> transaction(String deviceId, StateMutation mutate,
+    {void Function()? authorizeCommit}) {
     beforeMutation?.call();
     return super.transaction(deviceId, (state) {
       mutate(state);
       if (fail) {
         throw StateError('Simulated durable write failure');
       }
+    }, authorizeCommit: () {
+      beforeCommit?.call();
+      authorizeCommit?.call();
     });
   }
 }
@@ -59,7 +66,7 @@ void main() {
 
   setUp(() {
     store = MemoryCoachStore();
-    guard = GameModeGuard()..declareOfflineMode(GameMode.warehouse);
+    guard = recognizedGuard();
     workflow = CalibrationWorkflow(store: store, guard: guard, deviceId: _device);
   });
 
@@ -162,9 +169,9 @@ void main() {
   });
 
   test('same-timestamp observations, proposals and backups retain unique identities', () async {
-    final fixedTime = DateTime.utc(2026, 10, 7);
-    final fixedGuard = GameModeGuard(now: () => fixedTime)
-      ..declareOfflineMode(GameMode.warehouse);
+    final fixedTime = recognitionFixtureTime;
+    final fixedGuard = GameModeGuard(now: () => fixedTime);
+    observeSafeSession(fixedGuard, now: fixedTime);
     final isolated = CalibrationWorkflow(store: MemoryCoachStore(),
       guard: fixedGuard, deviceId: _device, now: () => fixedTime);
     await _baseline(isolated);
@@ -238,13 +245,65 @@ void main() {
     final metrics = {..._metrics(improved: true), 'sampleCount': 5.0};
     await expectLater(() => workflow.recordTest(id, metrics, manualApplied: false),
       throwsStateError);
-    guard.declareOfflineMode(GameMode.training);
+    observeSafeSession(guard, mode: GameMode.trainingSafe);
     await expectLater(() => workflow.recordTest(id, metrics, manualApplied: true),
       throwsStateError);
-    guard.declareOfflineMode(GameMode.safeUnranked);
+    observeSafeSession(guard, mode: GameMode.safeUnranked);
     final state = await workflow.recordTest(id, metrics, manualApplied: true);
     expect(_latestProposal(state)['status'], 'PASSED');
     expect((_latestProposal(state)['test'] as Map)['mode'], 'SAFE_UNRANKED');
+  });
+
+  test('proposal and trial approval require fresh authorized high-confidence capture', () async {
+    await _baseline(workflow);
+    final baseline = await workflow.read();
+    guard.stopCaptureSession();
+    for (final mode in [GameMode.trainingSafe, GameMode.warehouseSafe,
+      GameMode.arenaSafe, GameMode.safeUnranked]) {
+      guard.declareOfflineMode(mode);
+      await expectLater(() => _propose(workflow), throwsStateError);
+      expect(await workflow.read(), baseline);
+    }
+
+    observeSafeSession(guard);
+    final proposed = await _propose(workflow);
+    final id = _proposalId(proposed);
+    guard.stopCaptureSession();
+    guard.declareOfflineMode(GameMode.warehouseSafe);
+    await expectLater(() => workflow.approveForTest(id), throwsStateError);
+    observeSafeSession(guard, confidence: .90);
+    await expectLater(() => workflow.approveForTest(id), throwsStateError);
+    observeSafeSession(guard, captureAuthorized: false);
+    await expectLater(() => workflow.approveForTest(id), throwsStateError);
+    observeSafeSession(guard, foregroundVerified: false);
+    await expectLater(() => workflow.approveForTest(id), throwsStateError);
+    expect(await workflow.read(), proposed);
+
+    observeSafeSession(guard);
+    final testing = await workflow.approveForTest(id);
+    expect(testing['testingId'], id);
+    expect((testing['backups'] as List).length, 1);
+    expect((testing['approved'] as Map)['settings'], {_key: 31.0});
+  });
+
+  test('capture revocation prevents final approval of an otherwise passing candidate', () async {
+    await _baseline(workflow);
+    final id = _proposalId(await _propose(workflow));
+    await workflow.approveForTest(id);
+    final passed = await workflow.recordTest(id,
+      {..._metrics(improved: true), 'sampleCount': 5}, manualApplied: true);
+    expect(_latestProposal(passed)['status'], 'PASSED');
+    guard.stopCaptureSession();
+    for (final mode in [GameMode.trainingSafe, GameMode.warehouseSafe,
+      GameMode.arenaSafe, GameMode.safeUnranked]) {
+      guard.declareOfflineMode(mode);
+      await expectLater(() => workflow.approveFinal(id), throwsStateError);
+      expect(await workflow.read(), passed);
+    }
+    observeSafeSession(guard);
+    final approved = await workflow.approveFinal(id);
+    expect((approved['approved'] as Map)['settings'], {_key: 30.0});
+    expect(approved['testingId'], isNull);
   });
 
   test('failed comparison stays experimental and can be retested before approval', () async {
@@ -330,8 +389,13 @@ void main() {
     final id = _proposalId(await _propose(workflow));
     await workflow.approveForTest(id);
     final unchanged = await workflow.read();
-    for (final mode in [GameMode.rankedBlocked, GameMode.unknownBlocked]) {
-      guard.declareOfflineMode(mode);
+    for (final mode in [GameMode.competitiveBlocked, GameMode.unknownBlocked]) {
+      if (mode == GameMode.competitiveBlocked) {
+        observeCompetitiveSession(guard);
+      } else {
+        guard.stopCaptureSession();
+      }
+      expect(guard.mode, mode);
       final operations = <Future<StateMap> Function()>[
         () => workflow.saveBaseline({'AKM|Red Dot|None|20::ads': 40}),
         () => workflow.addObservation('aim', {'context': _context, 'metrics': _metrics()}),
@@ -366,12 +430,41 @@ void main() {
     expect((state['backups'] as List).length, 1);
   });
 
-  test('guard is checked again inside the write transaction', () async {
+  test('capture revocation is checked again inside the write transaction', () async {
     final delayed = _FailingStore();
     final isolated = CalibrationWorkflow(store: delayed, guard: guard, deviceId: _device);
-    delayed.beforeMutation = guard.invalidate;
+    delayed.beforeMutation = guard.stopCaptureSession;
     await expectLater(() => isolated.saveBaseline({_key: 31}), throwsStateError);
     expect((await isolated.read())['versions'], isEmpty);
+  });
+
+  test('late capture revocation rolls back trial creation at the commit boundary', () async {
+    final delayed = _FailingStore();
+    final isolated = CalibrationWorkflow(store: delayed, guard: guard, deviceId: _device);
+    await _baseline(isolated);
+    final id = _proposalId(await _propose(isolated));
+    final before = await isolated.read();
+    delayed.beforeCommit = guard.stopCaptureSession;
+    await expectLater(() => isolated.approveForTest(id), throwsStateError);
+    expect(await isolated.read(), before);
+    expect((await isolated.read())['backups'], isEmpty);
+    expect((await isolated.read())['testingId'], isNull);
+  });
+
+  test('late competitive evidence rolls back final approval at the commit boundary', () async {
+    final delayed = _FailingStore();
+    final isolated = CalibrationWorkflow(store: delayed, guard: guard, deviceId: _device);
+    await _baseline(isolated);
+    final id = _proposalId(await _propose(isolated));
+    await isolated.approveForTest(id);
+    final passed = await isolated.recordTest(id,
+      {..._metrics(improved: true), 'sampleCount': 5}, manualApplied: true);
+    delayed.beforeCommit = () => observeCompetitiveSession(guard);
+    await expectLater(() => isolated.approveFinal(id), throwsStateError);
+    expect(guard.mode, GameMode.competitiveBlocked);
+    expect(await isolated.read(), passed);
+    expect(((await isolated.read())['approved'] as Map)['settings'], {_key: 31.0});
+    expect((await isolated.read())['testingId'], id);
   });
 
   test('device profiles cannot inherit settings or proposals from another device', () async {

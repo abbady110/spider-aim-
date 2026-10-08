@@ -34,3 +34,9 @@ android {
 }
 
 flutter { source = "../.." }
+
+dependencies {
+    // Bundled on-device model: screen pixels and recognized text never leave the device.
+    implementation("com.google.mlkit:text-recognition:16.0.1")
+    testImplementation("junit:junit:4.13.2")
+}

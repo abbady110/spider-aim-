@@ -68,7 +68,7 @@ class _LandingPageState extends State<LandingPage> {
       const PageHeading(title: 'مساعد الهبوط', subtitle: 'تقدير هندسي للتدريب من قياساتك. تعليمات حسابية فقط، دون تحكم بالمظلة أو الحركة.'),
       const NoticePanel(text: 'لا توجد قراءة مباشرة للخريطة أو فيزياء موثقة من PUBG. أدخل إحداثيات ومسافات وسرعات قستها في جلسة غير مصنفة. النتيجة تقدير للمراجعة، وليست إشارة JUMP NOW أثناء اللعب.'),
       const SizedBox(height: 20),
-      if (!widget.controller.guard.allowed) const NoticePanel(warning: true, icon: Icons.lock_outline, text: 'الحساب مقفول: اختر جلسة مراجعة غير مصنفة من صفحة الأمان.'),
+      if (!widget.controller.guard.allowed) const NoticePanel(warning: true, icon: Icons.lock_outline, text: 'الحساب مقفول: يلزم تعرف تلقائي حديث على وضع مسموح. اختيار Training أو Warehouse يدويًا من السجل لا يفتح المساعد.'),
       const SizedBox(height: 20),
       SpiderCard(child: Form(key: _form, child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         for (final entry in _fields.entries) ...[

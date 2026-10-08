@@ -8,6 +8,8 @@ import 'package:spider_aim/landing/landing_assistant.dart';
 import 'package:spider_aim/movement/movement_calibration_engine.dart';
 import 'package:spider_aim/throwables/throwables_calibration_engine.dart';
 
+import 'support/recognized_guard.dart';
+
 final _time = DateTime.utc(2026, 1, 1);
 WeaponContext _context({String scope = '3x', double distance = 50}) => WeaponContext(
   weapon: 'M416', scope: scope, distanceMeters: distance,
@@ -46,12 +48,17 @@ LandingInput _landing({double east = 0, double north = 1500, double heading = 0}
 
 void main() {
   late GameModeGuard guard;
-  setUp(() { guard = GameModeGuard()..declareOfflineMode(GameMode.training); });
+  setUp(() { guard = recognizedGuard(mode: GameMode.trainingSafe); });
 
   group('all coaching entry points obey Ranked and UNKNOWN lock', () {
-    for (final mode in [GameMode.rankedBlocked, GameMode.unknownBlocked]) {
+    for (final mode in [GameMode.competitiveBlocked, GameMode.unknownBlocked]) {
       test('$mode blocks all gameplay analyses even with observations', () {
-        guard.declareOfflineMode(mode);
+        if (mode == GameMode.competitiveBlocked) {
+          observeCompetitiveSession(guard);
+        } else {
+          guard.stopCaptureSession();
+        }
+        expect(guard.mode, mode);
         expect(() => AimCalibrationEngine(guard).analyze(_samples()), throwsStateError);
         expect(() => AimCalibrationEngine(guard).suggestAds(_samples(), currentAds: 50), throwsStateError);
         expect(() => MovementCalibrationEngine(guard).analyze([]), throwsStateError);

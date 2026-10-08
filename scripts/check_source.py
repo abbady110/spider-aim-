@@ -48,11 +48,75 @@ for path in [*ROOT.glob("lib/**/*.dart"), *ROOT.glob("test/**/*.dart")]:
 for unsupported in ["web", "windows", "linux", "macos"]:
     check(not (ROOT / unsupported).exists(), f"Unsupported platform scaffold: {unsupported}")
 
+android_attribute = "{http://schemas.android.com/apk/res/android}"
 manifest = ET.parse(ROOT / "android/app/src/main/AndroidManifest.xml")
-permissions = [node.attrib.get("{http://schemas.android.com/apk/res/android}name")
-               for node in manifest.findall("uses-permission")]
-check(not permissions, f"Unexpected Android runtime/network permissions: {permissions}")
-check(not manifest.findall(".//service"), "Unexpected background/accessibility service")
+allowed_permissions = {
+    "android.permission.FOREGROUND_SERVICE",
+    "android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION",
+    "android.permission.POST_NOTIFICATIONS",
+    "android.permission.PACKAGE_USAGE_STATS",
+}
+permissions = [node.attrib.get(f"{android_attribute}name")
+               for node in manifest.getroot()
+               if node.tag.startswith("uses-permission")]
+check(set(permissions) == allowed_permissions,
+      f"Capture permission declarations differ from the official allowlist: {permissions}")
+check(len(permissions) == len(set(permissions)), "Duplicate Android permission declaration")
+for other_manifest in ROOT.glob("android/app/src/*/AndroidManifest.xml"):
+    declared = ET.parse(other_manifest)
+    for node in declared.getroot():
+        if node.tag.startswith("uses-permission"):
+            permission = node.attrib.get(f"{android_attribute}name")
+            check(permission in allowed_permissions,
+                  f"Unexpected permission in {other_manifest}: {permission}")
+
+services = manifest.findall(".//service")
+check(len(services) == 1, "Only the official capture foreground service may be declared")
+for service in services:
+    check(service.attrib.get(f"{android_attribute}name") == ".capture.PubgCaptureService",
+          "Unexpected Android service; input/accessibility/control services are forbidden")
+    check(service.attrib.get(f"{android_attribute}exported") == "false",
+          "Capture service must not be externally exported")
+    check(service.attrib.get(f"{android_attribute}foregroundServiceType") == "mediaProjection",
+          "Capture service must use only the official mediaProjection type")
+    check(service.attrib.get(f"{android_attribute}stopWithTask") == "true",
+          "Capture service must stop with its owning task")
+    check(not service.findall("intent-filter"), "Capture service must have no external intent filter")
+    check(not service.findall("meta-data"), "Unexpected service metadata or accessibility configuration")
+    check(f"{android_attribute}permission" not in service.attrib,
+          "Unexpected binding/control permission on capture service")
+
+for node in manifest.iter():
+    check("android.accessibilityservice.AccessibilityService" not in node.attrib.values(),
+          "Accessibility control service declaration is forbidden")
+
+for path in [*ROOT.glob("android/app/src/main/**/*.kt"),
+             *ROOT.glob("android/app/src/main/**/*.java"), *ROOT.glob("lib/**/*.dart")]:
+    source = path.read_text()
+    forbidden_control = re.search(
+        r"\b(?:AccessibilityService|BIND_ACCESSIBILITY_SERVICE)\b|"
+        r"\b(?:dispatchGesture|injectInputEvent|sendPointerSync|sendKeySync)\s*\(",
+        source,
+    )
+    check(forbidden_control is None, f"Forbidden input/accessibility control API in {path}")
+
+guard = (ROOT / "lib/game_mode_guard/game_mode_guard.dart").read_text()
+check(re.search(r"void\s+declareOfflineMode\(GameMode\s+\w+\)\s*\{\s*\}", guard),
+      "Legacy manual mode declaration must remain a no-op")
+check("AutomaticModeRecognizer" in guard, "Guard must delegate to automatic recognition")
+mode_source = (ROOT / "lib/game_mode_guard/game_mode.dart").read_text()
+mode_codes = set(re.findall(r"=>\s*'([A-Z_]+)'", mode_source))
+check(mode_codes == {"TRAINING_SAFE", "WAREHOUSE_SAFE", "ARENA_SAFE", "SAFE_UNRANKED",
+                     "COMPETITIVE_BLOCKED", "UNKNOWN_BLOCKED"},
+      "Automatic guard must expose exactly the six specified mode codes")
+native_build = (ROOT / "android/app/build.gradle.kts").read_text()
+check('com.google.mlkit:text-recognition:' in native_build,
+      "Capture must use the bundled on-device ML Kit text recognition dependency")
+capture_source = (ROOT / "android/app/src/main/kotlin/org/spideraim/coach/capture/PubgCaptureService.kt").read_text()
+check("MediaProjection" in capture_source and "startForeground(" in capture_source,
+      "Capture must use official MediaProjection and foreground-service lifecycle")
+check(not re.search(r"\b(?:FileOutputStream|MediaRecorder|MediaMuxer|OkHttpClient)\b", capture_source),
+      "Unexpected raw capture persistence, recording, or network client")
 
 store = (ROOT / "lib/storage/sqlite_coach_store.dart").read_text()
 sql = re.findall(r"await db\.execute\((['\"])(.*?)\1\)", store, re.DOTALL)
@@ -73,6 +137,7 @@ database.close()
 
 workflow = (ROOT / ".github/workflows/android.yml").read_text()
 for command in ["flutter pub get", "flutter analyze", "flutter test", "flutter build apk",
+                ":app:testReleaseUnitTest",
                 "actions/upload-artifact@", "android-arm,android-arm64"]:
     check(command in workflow, f"CI missing {command}")
 check("contents: read" in workflow, "CI should have read-only repository permission")
@@ -87,5 +152,5 @@ if errors:
     print("Offline structural checks FAILED:")
     print("\n".join(errors))
     sys.exit(1)
-print(f"PASS: {checks} offline structural checks (imports, XML/plist, SQLite triggers, platforms, CI).")
+print(f"PASS: {checks} offline structural checks (imports, XML/plist, capture permissions/services, automatic guard, SQLite triggers, platforms, CI).")
 print("Dart/Flutter analysis, tests, and APK build were NOT executed by this script.")
