@@ -4,7 +4,7 @@
 
 الأولوية لثبات التصويب ونتائج الإصابات المقاسة، مع فصل أخطاء التحكم عن الشبكة والأداء والحرارة. قياسات التصويب والتحكم يدخلها اللاعب؛ أضيف التعرف التلقائي على وضع اللعب من الشاشة على Android بواسطة OCR محلي وقواعد تحفظية. لا توجد قراءة مباشرة لبيانات PUBG أو تأكيد من خوادمها للإصابات.
 
-**حالة التحقق:** الإصدار السابق بتاريخ 2026-10-07 اجتاز التحليل و**111 اختبارًا** وبنى APK بحجم **31.4 MB** في [التشغيل التاريخي](https://github.com/abbady110/spider-aim-/actions/runs/37621731959). هذه النتائج لا تتحقق من تعديلات التعرف التلقائي الحالية؛ تشغيل CI الجديد قيد التحقق. اختبار الالتقاط وواجهات PUBG على أجهزة فعلية وقياس التحسن أثناء اللعب ما زال مطلوبًا. راجع [سجل التحقق](docs/VERIFICATION.md) قبل تنزيل أي إصدار.
+**حالة التحقق:** اجتازت الشيفرة `5f00646930609e82e3c044cd2bcc5cdfcc5dd84d` التحليل بلا مشكلات و**184 اختبارًا**، وبُني APK بحجم **63.3 MB** ونجحت اختبارات الالتقاط الأصلية في [التشغيل الناجح بتاريخ 2026-10-08](https://github.com/abbady110/spider-aim-/actions/runs/37723093465). أثبت فحص APK المبني غياب إذني `INTERNET` و`ACCESS_NETWORK_STATE`. [تنزيل APK الحالي](https://github.com/abbady110/spider-aim-/actions/runs/37723093465/artifacts/11526707072). اختبار الالتقاط وواجهات PUBG على أجهزة فعلية وقياس التحسن أثناء اللعب ما زال مطلوبًا؛ راجع [سجل التحقق](docs/VERIFICATION.md) والقيود أدناه.
 
 ## الميزات المنفذة
 
@@ -95,9 +95,9 @@ APK المبني مخصص للتجربة والتثبيت الجانبي وفق 
 
 افتح [Actions → Android APK](https://github.com/abbady110/spider-aim-/actions/workflows/android.yml)، ثم أحدث تشغيل ناجح. من **Artifacts** نزّل `spider-aim-android-apk`، وفك ZIP للوصول إلى `app-release.apk`. يحتوي `spider-aim-verification` على سجلات التحليل والاختبارات والبناء والتغطية عند توفرها. يلزم تسجيل الدخول إلى GitHub لتنزيل Artifacts، ومدة الاحتفاظ 30 يومًا.
 
-نتائج البناء المؤكد بتاريخ 2026-10-07 **للنسخة السابقة فقط**: [APK](https://github.com/abbady110/spider-aim-/actions/runs/37621731959/artifacts/11482581407) و[سجلات التحقق](https://github.com/abbady110/spider-aim-/actions/runs/37621731959/artifacts/11482581411). ينتهي الاحتفاظ بهذه الملفات في 2026-11-06؛ أعد تشغيل Workflow لإنشاء ملفات جديدة بعد ذلك.
+أحدث بناء مؤكد اكتمل في **2026-10-08 الساعة 03:37:32 UTC**: [APK الحالي](https://github.com/abbady110/spider-aim-/actions/runs/37723093465/artifacts/11526707072) و[سجلات التحقق](https://github.com/abbady110/spider-aim-/actions/runs/37723093465/artifacts/11526856659). ملف APK المضغوط حجمه **29,904,678 بايت** وينتهي الاحتفاظ به في **2026-11-07 الساعة 03:37:24 UTC**؛ السجلات تنتهي بعده بثانيتين. نتيجة النسخة السابقة ذات 111 اختبارًا موثقة تاريخيًا في [سجل التحقق](docs/VERIFICATION.md).
 
-ينفّذ Workflow: Checkout → Java/Android/Flutter setup → `flutter pub get` → `flutter analyze` → `flutter test` → APK build → `:app:testReleaseUnitTest` لاختبارات الالتقاط الأصلية → artifact upload. وجود ملف Workflow وحده ليس إثبات نجاح البناء؛ راجع نتيجة التشغيل الفعلية وسجلاته، ومنها `native-capture-tests.log`.
+ينفّذ Workflow إعداد الأدوات، و`flutter pub get`، و`flutter analyze`، و`flutter test`، وبناء APK، واختبارات الالتقاط الأصلية `:app:testReleaseUnitTest`. يفحص أيضًا أذونات **APK الفعلي** باستخدام `aapt` ويمنع رفع Artifact إذا بقي إذن `INTERNET` أو `ACCESS_NETWORK_STATE`. راجع نتيجة التشغيل وسجلاته، ومنها `native-capture-tests.log`؛ نجحت هذه الخطوات في التشغيل الحالي المرتبط أعلاه.
 
 ## البنية والخصوصية
 
@@ -113,7 +113,7 @@ APK المبني مخصص للتجربة والتثبيت الجانبي وفق 
 
 SPIDER AIM is a local Flutter aim-and-control calibration coach for physical Android phones/tablets and iPhone/iPad. The default policy is `NON_GYRO`, `TOUCH_ONLY`, gyroscope disabled, and ADS gyroscope disabled. Android is the first intended build-validation target.
 
-**Verification status:** the previous 2026-10-07 revision passed analysis and **111 tests** and built a **31.4 MB APK** in this [historical run](https://github.com/abbady110/spider-aim-/actions/runs/37621731959). That result does not validate the current automatic-recognition changes; the new CI result is pending. Real-device capture, PUBG HUD/layout validation, and measured gameplay improvement remain outstanding. See [Verification](docs/VERIFICATION.md).
+**Verification status:** revision `5f00646930609e82e3c044cd2bcc5cdfcc5dd84d` passed analysis with no issues and **184 tests**, built a **63.3 MB APK**, and passed native capture safety tests in the [successful 2026-10-08 run](https://github.com/abbady110/spider-aim-/actions/runs/37723093465). An audit of the built APK confirmed that `INTERNET` and `ACCESS_NETWORK_STATE` permissions are absent. [Download the current APK](https://github.com/abbady110/spider-aim-/actions/runs/37723093465/artifacts/11526707072). Real-device capture, PUBG HUD/layout validation, and measured gameplay improvement remain outstanding. See [Verification](docs/VERIFICATION.md) and the interaction limitations below.
 
 The source implements an Arabic RTL dark interface, per-device profiles, official-API device/battery/thermal observations, weapon/scope/attachment/distance calibration contexts, evidence-based recommendations, movement/throwables review, death and hit-registration differential diagnostics, battery reports, and a local SQLite-backed settings-version workflow.
 
@@ -141,7 +141,9 @@ Clone the GitHub repository or use the existing local project with Flutter **3.3
 
 On [GitHub Actions](https://github.com/abbady110/spider-aim-/actions/workflows/android.yml), open a successful **Android APK** run and download **spider-aim-android-apk** from its Artifacts section. Verification logs are uploaded as **spider-aim-verification**, including failed-run logs when present. Artifacts are retained for 30 days. Check an actual workflow run before treating a build as validated.
 
-The historical 2026-10-07 run provides the **previous revision's** [APK](https://github.com/abbady110/spider-aim-/actions/runs/37621731959/artifacts/11482581407) and [verification logs](https://github.com/abbady110/spider-aim-/actions/runs/37621731959/artifacts/11482581411); these artifacts expire on 2026-11-06. Current CI also runs `./gradlew :app:testReleaseUnitTest` after APK compilation and before upload, with a `native-capture-tests.log` report. Rerun the workflow for fresh revision-specific artifacts.
+The latest verified run completed **2026-10-08 at 03:37:32 UTC** and provides the [current APK](https://github.com/abbady110/spider-aim-/actions/runs/37723093465/artifacts/11526707072) and [verification logs](https://github.com/abbady110/spider-aim-/actions/runs/37723093465/artifacts/11526856659). The APK artifact is **29,904,678 compressed bytes** and expires **2026-11-07 at 03:37:24 UTC**; the verification artifact expires two seconds later. The previous 111-test result is retained as history in [Verification](docs/VERIFICATION.md).
+
+CI runs `./gradlew :app:testReleaseUnitTest` after APK compilation, preserving `native-capture-tests.log`. It also audits the actual built APK with `aapt` and refuses artifact upload if `INTERNET` or `ACCESS_NETWORK_STATE` survives manifest merging. Both native tests and the APK permission audit passed in the linked current run.
 
 iOS native device sources are included; the bootstrap script fills missing Xcode project/assets from the pinned Flutter SDK without replacing those sources. Cross-app PUBG capture is not implemented on iOS: it requires a ReplayKit Broadcast Upload Extension and Apple provisioning. The iOS automatic guard remains fail-closed. iOS builds/signing require macOS and Xcode. Desktop/web and emulator deployment are unsupported; CI unit/widget tests do not imply emulator product support.
 

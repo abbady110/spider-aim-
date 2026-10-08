@@ -49,6 +49,6 @@ The current battery UI records session start and end snapshots. Intermediate hea
 
 Local commands and GitHub Actions logs are the evidence of build validity. Do not report `flutter analyze`, `flutter test`, or APK build as passed unless they actually completed successfully. iOS compilation, store signing, physical-device thermal/FPS overhead, game-mode verification, and actual coaching effectiveness are separate acceptance tests.
 
-The previous 2026-10-07 revision passed analysis, 111 tests, and APK compilation. Those historical results do not validate the current automatic-recognition revision; its CI result is pending. See [VERIFICATION.md](VERIFICATION.md) for revision-specific evidence and remaining checks.
+The automatic-recognition code revision `5f00646930609e82e3c044cd2bcc5cdfcc5dd84d` passed analysis, 184 Flutter tests, Android APK compilation, native capture safety tests, and the actual APK network-permission audit in [run 37723093465](https://github.com/abbady110/spider-aim-/actions/runs/37723093465). The previous 111-test result is historical. Real-device recognition, interaction, and performance acceptance remain outstanding; see [VERIFICATION.md](VERIFICATION.md) for revision-specific evidence and remaining checks.
 
 Official API references: [MediaProjection](https://developer.android.com/media/grow/media-projection), [UsageStatsManager](https://developer.android.com/reference/android/app/usage/UsageStatsManager), and [ML Kit Text Recognition](https://developers.google.com/ml-kit/vision/text-recognition/v2/android).

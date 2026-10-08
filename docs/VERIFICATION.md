@@ -2,7 +2,7 @@
 
 Current source review date: **2026-10-08 (UTC)**.
 
-أضيف حارس تلقائي جديد والتقاط Android مصرح به. **نتيجة CI لهذا التعديل قيد التحقق**؛ نجاح 111 اختبارًا وAPK بتاريخ 2026-10-07 أدناه يخص النسخة السابقة فقط. لا يُستخدم لإثبات بناء أو دقة التعرف في الشيفرة الحالية.
+نجح CI لتعديلات الحارس التلقائي والتقاط Android: التحليل بلا مشكلات، و**184 اختبارًا** ناجحًا، وAPK بحجم **63.3 MB**، واختبارات الالتقاط الأصلية، وفحص أذونات APK المبني. يخص ذلك الشيفرة `5f00646930609e82e3c044cd2bcc5cdfcc5dd84d` في [التشغيل 37723093465](https://github.com/abbady110/spider-aim-/actions/runs/37723093465)، المكتمل في **2026-10-08 الساعة 03:37:32 UTC**. هذه النتائج لا تثبت دقة التعرف على أجهزة فعلية أو تحسن اللعب.
 
 ## Current automatic-recognition revision
 
@@ -10,16 +10,33 @@ Current source review date: **2026-10-08 (UTC)**.
 | --- | --- |
 | `python3 scripts/check_source.py` | PASS — 218 offline structural checks; no Flutter/native compilation |
 | `git diff --check` | PASS — whitespace validation only |
-| `flutter pub get` | PENDING current revision CI |
-| `flutter analyze --fatal-infos` | PENDING current revision CI |
-| `flutter test --coverage` | PENDING current revision CI |
-| `./gradlew :app:testReleaseUnitTest` | PENDING current revision CI; native capture safety tests |
-| Android APK compilation and upload | PENDING current revision CI |
-| Built APK network permission audit | PENDING current revision CI; dependency permissions stripped in source |
+| `bash -n scripts/bootstrap_flutter.sh scripts/verify.sh scripts/check_apk_permissions.sh` | PASS — shell syntax validation only |
+| `flutter pub get` | PASS — current revision GitHub Actions |
+| `flutter analyze --fatal-infos` | PASS — no issues, 12.8 seconds |
+| `flutter test --coverage` | PASS — 184 tests, 10 seconds |
+| `./gradlew :app:testReleaseUnitTest` | PASS — native capture safety task; `BUILD SUCCESSFUL in 41s` |
+| Android APK compilation and upload | PASS — release ARM/ARM64 APK, 63.3 MB |
+| Built APK network permission audit | PASS — `aapt` confirmed no `INTERNET` or `ACCESS_NETWORK_STATE` permission |
 | MediaProjection / Usage Access consent on physical Android | NOT RUN |
 | Real PUBG HUD/locale/device recognition validation | NOT RUN |
 | Measured capture CPU/battery/FPS overhead | NOT RUN |
 | iOS cross-app capture | NOT IMPLEMENTED; requires ReplayKit Broadcast Upload Extension and provisioning |
+
+Tested source revision: [`5f00646930609e82e3c044cd2bcc5cdfcc5dd84d`](https://github.com/abbady110/spider-aim-/commit/5f00646930609e82e3c044cd2bcc5cdfcc5dd84d). The completed workflow and downloaded logs/artifact metadata were checked independently; the subsequent documentation update does not change that tested code revision.
+
+- [Current APK artifact: spider-aim-android-apk](https://github.com/abbady110/spider-aim-/actions/runs/37723093465/artifacts/11526707072): `app-release.apk`, 63.3 MB as reported by Flutter; compressed artifact **29,904,678 bytes**. Expires **2026-11-07 03:37:24 UTC**.
+- [Current verification artifact: spider-aim-verification](https://github.com/abbady110/spider-aim-/actions/runs/37723093465/artifacts/11526856659): analysis, Flutter test, APK build, native capture test, and permission-audit logs; compressed artifact **10,975 bytes**. Expires **2026-11-07 03:37:26 UTC**.
+
+Verified current job output:
+
+```text
+No issues found! (ran in 12.8s)
+00:10 +184: All tests passed!
+Built build/app/outputs/flutter-apk/app-release.apk (63.3MB)
+BUILD SUCCESSFUL in 41s
+```
+
+The final line belongs to `./gradlew :app:testReleaseUnitTest`. The separate actual-APK `aapt` audit passed and found neither network permission. No coverage percentage or physical-device performance result is asserted.
 
 Current source implements six automatic modes: `TRAINING_SAFE`, `WAREHOUSE_SAFE`, `ARENA_SAFE`, `SAFE_UNRANKED`, `COMPETITIVE_BLOCKED`, and `UNKNOWN_BLOCKED`. The Android path uses consented MediaProjection, a media-projection foreground service, UsageStats foreground checks, and bundled local Latin OCR. Manual selections cannot authorize any operation. Synthetic automated fixtures exercise confidence, independent frames, temporal checks, competitive latching, revocation, and transaction gates; they do not establish accuracy on real screenshots.
 
@@ -70,9 +87,9 @@ Structural checks for the current revision can be repeated without Flutter using
 
 Direct package versions are pinned in `pubspec.yaml`. CI dependency resolution passed, but the generated `pubspec.lock` has not been retrieved or committed. Capturing that lockfile remains a reproducibility improvement for transitive dependencies.
 
-## Current tests present in source; new CI execution pending
+## Current test coverage validated by CI
 
-| File | Behavioral coverage to verify for this revision |
+| File | Behavioral coverage in this revision |
 | --- | --- |
 | `test/guard_test.dart` | Automatic-only permission; no manual override from unknown/competition; trusted frames, freshness, capture revocation |
 | `test/mode_recognition_test.dart` | Multi-frame evidence, heuristic threshold, contradictions, temporal validity, pixel-fingerprint independence, competitive session latch |
@@ -100,7 +117,7 @@ After the command succeeds, the expected local APK path is:
 build/app/outputs/flutter-apk/app-release.apk
 ```
 
-The [Android APK workflow](https://github.com/abbady110/spider-aim-/actions/workflows/android.yml) performs dependency resolution, analysis, Flutter tests, APK compilation, native capture safety tests, then artifact upload. Native tests run using `./gradlew :app:testReleaseUnitTest`, with `native-capture-tests.log` in the verification artifact. The artifacts linked above remain historical until a current-revision run is recorded. Download a successful current APK ZIP while signed in, extract `app-release.apk`, and install on a supported physical Android device. Development signing is used; production updates require a stable private release key.
+The [Android APK workflow](https://github.com/abbady110/spider-aim-/actions/workflows/android.yml) performs dependency resolution, analysis, Flutter tests, APK compilation, native capture safety tests, and a permission audit of the built APK before artifact upload. Native tests use `./gradlew :app:testReleaseUnitTest`, with `native-capture-tests.log` in the verification artifact. `aapt` must find neither `INTERNET` nor `ACCESS_NETWORK_STATE` in the actual APK. Download the current APK linked in the first section while signed in, extract `app-release.apk`, and install on a supported physical Android device. Development signing is used; production updates require a stable private release key.
 
 ## Physical-device acceptance still required
 
@@ -110,4 +127,4 @@ Also validate official device readings, durable approved/trial/backup retention,
 
 Current interaction limitation: returning to SPIDER AIM closes the form guard, so interactive writes while PUBG remains verified foreground are not implemented. An authorized overlay or verified session-review interaction is future work and must not introduce a manual authorization bypass.
 
-نتائج التحليل و111 اختبارًا وAPK الموثقة تخص النسخة السابقة. التعديل الحالي يحتاج نتيجة CI مستقلة، إضافة إلى تجارب الأجهزة وواجهات PUBG الفعلية. لا يوجد حاليًا تنفيذ التقاط PUBG عبر التطبيقات على iOS، ولا تثبت اختبارات الوحدة تحسن ثبات التصويب أو Hit Registration أثناء اللعب.
+نجحت نتائج CI الحالية للتحليل و184 اختبارًا وبناء APK واختبارات الالتقاط الأصلية وفحص أذونات APK. قسم 111 اختبارًا محفوظ كسجل للنسخة السابقة فقط. ما زالت تجارب الأجهزة وواجهات PUBG الفعلية مطلوبة، ولا يوجد حاليًا التقاط PUBG عبر التطبيقات على iOS. لا تثبت اختبارات الوحدة تحسن ثبات التصويب أو Hit Registration أثناء اللعب، ويبقى قيد التفاعل عند الرجوع إلى SPIDER AIM قائمًا.
