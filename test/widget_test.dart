@@ -49,6 +49,51 @@ class _UnavailableCapture extends CaptureService {
   Future<void> requestUsageAccess() async {}
 }
 
+class _CaptureEventStream extends Stream<Map<String, dynamic>> {
+  _CaptureEventStream(this.inner);
+  final Stream<Map<String, dynamic>> inner;
+
+  @override
+  StreamSubscription<Map<String, dynamic>> listen(
+    void Function(Map<String, dynamic>)? onData, {
+    Function? onError,
+    void Function()? onDone,
+    bool? cancelOnError,
+  }) => _CaptureSubscription(inner.listen(
+    onData, onError: onError, onDone: onDone, cancelOnError: cancelOnError,
+  ));
+}
+
+class _CaptureSubscription implements StreamSubscription<Map<String, dynamic>> {
+  _CaptureSubscription(this.inner);
+  final StreamSubscription<Map<String, dynamic>> inner;
+
+  @override
+  Future<void> cancel() {
+    // Broadcast mock listeners are removed synchronously. A fresh acknowledgement
+    // belongs to this widget's fake zone; the SDK's shared completed cancellation
+    // future can belong to the outer zone and stall an awaited widget action.
+    // This adapter is test-only; production still awaits native stream cleanup.
+    unawaited(inner.cancel());
+    return Future<void>.value();
+  }
+
+  @override
+  void onData(void Function(Map<String, dynamic>)? handleData) => inner.onData(handleData);
+  @override
+  void onError(Function? handleError) => inner.onError(handleError);
+  @override
+  void onDone(void Function()? handleDone) => inner.onDone(handleDone);
+  @override
+  void pause([Future<void>? resumeSignal]) => inner.pause(resumeSignal);
+  @override
+  void resume() => inner.resume();
+  @override
+  bool get isPaused => inner.isPaused;
+  @override
+  Future<E> asFuture<E>([E? futureValue]) => inner.asFuture<E>(futureValue);
+}
+
 class _Capture extends CaptureService {
   _Capture({this.supported = true, this.consentGranted = true});
   final bool supported;
@@ -58,7 +103,7 @@ class _Capture extends CaptureService {
   int stopRequests = 0;
 
   @override
-  Stream<Map<String, dynamic>> get events => frames.stream;
+  Stream<Map<String, dynamic>> get events => _CaptureEventStream(frames.stream);
 
   @override
   Future<Map<String, dynamic>> capabilities() async => {
