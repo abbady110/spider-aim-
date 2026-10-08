@@ -23,6 +23,6 @@ The window is `FLAG_SECURE` so its labels and forms are excluded from screen cap
 
 Metrics and PUBG settings are still entered and applied manually. The panel does not implement automatic combat analysis or server-confirmed hit telemetry. Cross-app capture and this panel remain unavailable on iOS.
 
-Install a new APK as an update when its signature is compatible. If Android rejects a development-signed update, do not erase an existing app that contains approved settings or backups. A stable private release signing key is required for reliable updates; the repository must not contain that private key.
+The previous APK from run `37723093465` and current APK from run `37736827044` have confirmed different signing certificates and cannot update one another in place. Preserve an installed app with stored or uncertain data; its internal backups do not survive uninstall, and the previous version has no export feature. Test this panel on a device without existing SPIDER AIM data. A stable private release signing key is required for future reliable updates; it cannot repair compatibility with a different existing signer, and the repository must not contain that private key.
 
 See [Verification](VERIFICATION.md) for the exact tested code revision and build evidence. A passing automated build does not establish physical-device usability or gameplay improvement.
