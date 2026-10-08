@@ -103,16 +103,18 @@ class ContextPicker extends StatelessWidget {
     children: [
       Row(children: [
         Expanded(child: DropdownButtonFormField<String>(
+          isExpanded: true,
           initialValue: weapon,
           decoration: const InputDecoration(labelText: 'السلاح'),
-          items: weaponChoices.map((value) => DropdownMenuItem(value: value, child: Text(value))).toList(),
+          items: weaponChoices.map((value) => DropdownMenuItem(value: value, child: Text(value, maxLines: 1, overflow: TextOverflow.ellipsis))).toList(),
           onChanged: (value) { if (value != null) { onWeapon(value); } },
         )),
         const SizedBox(width: 12),
         Expanded(child: DropdownButtonFormField<String>(
+          isExpanded: true,
           initialValue: scope,
           decoration: const InputDecoration(labelText: 'السكوب'),
-          items: scopeChoices.map((value) => DropdownMenuItem(value: value, child: Text(value))).toList(),
+          items: scopeChoices.map((value) => DropdownMenuItem(value: value, child: Text(value, maxLines: 1, overflow: TextOverflow.ellipsis))).toList(),
           onChanged: (value) { if (value != null) { onScope(value); } },
         )),
       ]),
@@ -515,8 +517,9 @@ class _ObservationFormState extends State<ObservationForm> {
     children: [
       for (final entry in widget.options.entries) ...[
         DropdownButtonFormField<String>(
+          isExpanded: true,
           decoration: InputDecoration(labelText: entry.key == 'obstacle' ? 'موضع الرمي' : entry.key == 'cause' ? 'السبب الملحوظ أو غير المحسوم' : entry.key == 'action' ? 'اختبار الحركة' : entry.key),
-          items: entry.value.map((value) => DropdownMenuItem(value: value, child: Text(optionLabel(value)))).toList(),
+          items: entry.value.map((value) => DropdownMenuItem(value: value, child: Text(optionLabel(value), maxLines: 1, overflow: TextOverflow.ellipsis))).toList(),
           onChanged: (value) { if (value != null) { _choices[entry.key] = value; } },
         ),
         const SizedBox(height: 14),
@@ -527,6 +530,7 @@ class _ObservationFormState extends State<ObservationForm> {
       ],
       for (final entry in widget.booleans.entries) ...[
         DropdownButtonFormField<bool>(
+          isExpanded: true,
           decoration: InputDecoration(labelText: entry.value),
           items: const [DropdownMenuItem(value: true, child: Text('نعم')), DropdownMenuItem(value: false, child: Text('لا'))],
           onChanged: (value) { if (value != null) { _booleans[entry.key] = value; } },
