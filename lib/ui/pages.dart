@@ -608,7 +608,7 @@ class CoachPage extends StatelessWidget {
     const PageHeading(title: 'الأمان وقفل Ranked', subtitle: 'UNKNOWN_BLOCKED افتراضيًا. السماح يأتي من التعرف التلقائي المتكرر فقط، ولا يوجد فتح يدوي.'),
     RecognitionPanel(controller: controller, showControls: true),
     _gap(),
-    const NoticePanel(text: 'يُفحص PUBG عندما يكون هو التطبيق الأمامي. عند العودة إلى SPIDER AIM لا يُمنح سماح جديد: يصبح الوضع UNKNOWN أو يبقى القفل التنافسي محفوظًا. عمليات الحفظ والمعايرة مقفولة، والسجلات السابقة متاحة للقراءة فقط.'),
+    const NoticePanel(text: 'يُفحص PUBG عندما يكون هو التطبيق الأمامي. استخدم اللوحة العائمة المصرح بها للتسجيل والمراجعة أثناء بقائه في المقدمة. العودة إلى واجهة SPIDER AIM الرئيسية تقفل نماذجها؛ تبقى السجلات متاحة للقراءة فقط. إذن اللوحة لا يتجاوز الحارس.'),
     _gap(),
     const NoticePanel(warning: true, text: 'Battle Royale / Ranked / Competitive تُبقي المعايرة مقفولة. ظهور دليل Battle Royale يثبت قفلًا للجلسة؛ اختيار سجل أو شاشة غامضة لاحقة لا يمحوانه. لا يُمنح وضع مسموح من غياب علامة تنافسية وحده.'),
     _gap(),

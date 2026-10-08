@@ -4,19 +4,26 @@ import '../capture/capture_service.dart';
 import '../device/device_service.dart';
 import '../game_mode_guard/game_mode_guard.dart';
 import '../game_mode_recognition/recognition_models.dart';
+import '../overlay/overlay_service.dart';
 import '../storage/coach_store.dart';
 import 'calibration_workflow.dart';
 
 class CoachController extends ChangeNotifier with WidgetsBindingObserver {
   CoachController({required this.store, DeviceService? deviceService,
-    GameModeGuard? gameModeGuard, CaptureService? captureService})
+    GameModeGuard? gameModeGuard, CaptureService? captureService,
+    OverlayService? overlayService})
     : deviceService = deviceService ?? const DeviceService(),
       guard = gameModeGuard ?? GameModeGuard(),
-      captureService = captureService ?? const CaptureService();
+      captureService = captureService ?? const CaptureService(),
+      overlayService = overlayService ?? const OverlayService();
   final CoachStore store;
   final DeviceService deviceService;
   final GameModeGuard guard;
   final CaptureService captureService;
+  final OverlayService overlayService;
+  Map<String, dynamic> overlayCapabilities = const {'supported': false, 'permissionGranted': false};
+  bool overlayVisible = false;
+  VoidCallback? disposeOverlayBridge;
   RecognitionDecision get recognition => guard.recognition;
   bool get competitiveLatched => guard.competitiveLatched;
   bool captureRunning = false;
@@ -40,6 +47,7 @@ class CoachController extends ChangeNotifier with WidgetsBindingObserver {
     try {
       await refreshDevice();
       await refreshCaptureCapabilities();
+      await refreshOverlayCapabilities();
     } catch (e) {
       error = e.toString();
     } finally {
@@ -50,6 +58,41 @@ class CoachController extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> refreshCaptureCapabilities() async {
     captureCapabilities = await captureService.capabilities();
     if (!_disposed) notifyListeners();
+  }
+  Future<void> refreshOverlayCapabilities() async {
+    try {
+      overlayCapabilities = await overlayService.capabilities();
+      if (overlayCapabilities['permissionGranted'] != true && overlayVisible) {
+        await hideOverlay();
+      }
+    } catch (e) {
+      overlayCapabilities = {'supported': false, 'permissionGranted': false, 'reason': '$e'};
+      overlayVisible = false;
+      error = 'تعذر التحقق من إذن اللوحة العائمة: $e';
+    }
+    if (!_disposed) notifyListeners();
+  }
+  Future<void> requestOverlayPermission() async {
+    await overlayService.requestPermission();
+    await refreshOverlayCapabilities();
+  }
+  Future<void> showOverlay() async {
+    await refreshOverlayCapabilities();
+    if (!captureRunning || overlayCapabilities['supported'] != true ||
+        overlayCapabilities['permissionGranted'] != true) {
+      throw StateError('يلزم بدء الالتقاط ومنح إذن الظهور فوق التطبيقات الأخرى.');
+    }
+    final result = await overlayService.show();
+    overlayVisible = result['visible'] == true;
+    if (!_disposed) notifyListeners();
+    if (!overlayVisible) {
+      throw StateError('تعذر إظهار اللوحة العائمة: ${result['reason'] ?? 'UNKNOWN'}');
+    }
+  }
+  Future<void> hideOverlay() async {
+    overlayVisible = false;
+    if (!_disposed) notifyListeners();
+    await overlayService.hide();
   }
   Future<void> refreshDevice() async {
     final snapshot = await deviceService.read();
@@ -80,6 +123,7 @@ class CoachController extends ChangeNotifier with WidgetsBindingObserver {
       // Usage Access is an OS settings screen. Returning must refresh its real
       // permission state, never assume it was granted from opening that screen.
       unawaited(refreshCaptureCapabilities());
+      unawaited(refreshOverlayCapabilities());
     } else if (!captureRunning && !_captureStarting) {
       guard.invalidate();
       notifyListeners();
@@ -198,6 +242,8 @@ class CoachController extends ChangeNotifier with WidgetsBindingObserver {
     _verificationTimer = null;
     guard.stopCaptureSession();
     error = reason;
+    overlayVisible = false;
+    unawaited(overlayService.hide().catchError((Object _) {}));
     if (!_disposed) notifyListeners();
   }
   Future<void> stopAutomaticRecognition() async {
@@ -243,6 +289,9 @@ class CoachController extends ChangeNotifier with WidgetsBindingObserver {
   @override
   void dispose() {
     _disposed = true;
+    disposeOverlayBridge?.call();
+    disposeOverlayBridge = null;
+    unawaited(overlayService.hide().catchError((Object _) {}));
     _verificationTimer?.cancel();
     unawaited(_captureSubscription?.cancel());
     unawaited(captureService.stop().catchError((Object _) {}));

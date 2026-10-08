@@ -121,7 +121,9 @@ class CalibrationWorkflow {
     if (current == proposed) {
       throw ArgumentError('لا يوجد تغيير مقترح.');
     }
-    if ((proposed-current).abs() > (current.abs()*0.05).clamp(1,20)) {
+    // Decimal values exactly at the five-percent bound can differ by a few
+    // binary floating-point ULPs (for example 31 -> 29.45).
+    if ((proposed-current).abs() > (current.abs()*0.05).clamp(1,20) + 1e-9) {
       throw ArgumentError('ابدأ بخطوة صغيرة: 5٪ من القيمة الحالية بحد أدنى نقطة.');
     }
     final context = key.split('::').first;

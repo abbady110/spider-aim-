@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.media.projection.MediaProjectionManager
 import android.media.projection.MediaProjectionConfig
 import android.net.Uri
@@ -23,11 +24,14 @@ import io.flutter.plugin.common.EventChannel
 import org.spideraim.coach.capture.CaptureEvents
 import org.spideraim.coach.capture.PubgCaptureService
 import org.spideraim.coach.capture.PubgForegroundVerifier
+import org.spideraim.coach.overlay.CalibrationOverlay
 import java.util.UUID
 
 class MainActivity : FlutterActivity() {
     private var captureResult: MethodChannel.Result? = null
     private var pendingSession: String? = null
+    private var overlay: CalibrationOverlay? = null
+    private var overlayChannel: MethodChannel? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -92,6 +96,53 @@ class MainActivity : FlutterActivity() {
                     }
                 }
             })
+        val overlayMethods = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "spider_aim/overlay")
+        overlayChannel = overlayMethods
+        overlay?.destroy()
+        overlay = CalibrationOverlay(this, overlayMethods)
+        overlayMethods.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "capabilities" -> result.success(mapOf(
+                    "supported" to (try { readDevice()["supported"] == true } catch (_: Exception) { false }),
+                    "permissionGranted" to Settings.canDrawOverlays(this)))
+                "requestPermission" -> {
+                    try {
+                        startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
+                        result.success(mapOf("opened" to true,
+                            "permissionGranted" to Settings.canDrawOverlays(this)))
+                    } catch (_: Exception) {
+                        result.success(mapOf("opened" to false, "permissionGranted" to false,
+                            "reason" to "OVERLAY_SETTINGS_UNAVAILABLE"))
+                    }
+                }
+                "show" -> {
+                    if (try { readDevice()["supported"] != true } catch (_: Exception) { true }) {
+                        result.success(mapOf("visible" to false, "reason" to "UNSUPPORTED_DEVICE"))
+                    } else result.success(overlay?.show() ?: mapOf("visible" to false))
+                }
+                "hide" -> result.success(overlay?.hide() ?: mapOf("visible" to false))
+                "updateState" -> {
+                    @Suppress("UNCHECKED_CAST")
+                    val state = call.arguments as? Map<String, Any?> ?: emptyMap()
+                    overlay?.updateState(state)
+                    result.success(null)
+                }
+                else -> result.notImplemented()
+            }
+        }
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        overlay?.onDisplayChanged()
+    }
+
+    override fun onDestroy() {
+        overlay?.destroy()
+        overlay = null
+        overlayChannel?.setMethodCallHandler(null)
+        overlayChannel = null
+        super.onDestroy()
     }
 
     private fun captureCapabilities(): Map<String, Any?> {

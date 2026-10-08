@@ -4,6 +4,8 @@
 
 الأولوية لثبات التصويب ونتائج الإصابات المقاسة، مع فصل أخطاء التحكم عن الشبكة والأداء والحرارة. قياسات التصويب والتحكم يدخلها اللاعب؛ أضيف التعرف التلقائي على وضع اللعب من الشاشة على Android بواسطة OCR محلي وقواعد تحفظية. لا توجد قراءة مباشرة لبيانات PUBG أو تأكيد من خوادمها للإصابات.
 
+أضيفت لوحة Android عائمة لحل مشكلة التسجيل أثناء بقاء PUBG في المقدمة. التحقق الآلي من إضافة اللوحة قيد التنفيذ؛ نتيجة البناء السابقة أدناه تسبق هذه الإضافة.
+
 **حالة التحقق:** اجتازت الشيفرة `5f00646930609e82e3c044cd2bcc5cdfcc5dd84d` التحليل بلا مشكلات و**184 اختبارًا**، وبُني APK بحجم **63.3 MB** ونجحت اختبارات الالتقاط الأصلية في [التشغيل الناجح بتاريخ 2026-10-08](https://github.com/abbady110/spider-aim-/actions/runs/37723093465). أثبت فحص APK المبني غياب إذني `INTERNET` و`ACCESS_NETWORK_STATE`. [تنزيل APK الحالي](https://github.com/abbady110/spider-aim-/actions/runs/37723093465/artifacts/11526707072). اختبار الالتقاط وواجهات PUBG على أجهزة فعلية وقياس التحسن أثناء اللعب ما زال مطلوبًا؛ راجع [سجل التحقق](docs/VERIFICATION.md) والقيود أدناه.
 
 ## الميزات المنفذة
@@ -35,7 +37,7 @@
 
 مؤشر مصنف أو Battle Royale بدرجة 0.80 أو أكثر، مثل الطائرة أو مسار الطيران أو النزول أو المظلة، يقفل الجلسة فورًا ويوقف معالجة البكسل وOCR مع إبقاء الخدمة وإشعار الإيقاف حتى إنهاء الجلسة. التعارض، الدليل القديم، غياب PUBG في المقدمة، أو فقد إذن الالتقاط يعيد القفل. الأزرار اليدوية للسجل عرض تاريخي فقط؛ لا تتجاوز الحارس.
 
-**قيد الاستخدام الحالي:** الرجوع من PUBG إلى SPIDER AIM يغلق حارس النماذج لحماية شرط التطبيق الموجود في المقدمة. لذلك لم تُحل بعد تجربة كتابة الإعدادات التفاعلية داخل SPIDER AIM بينما PUBG في المقدمة. يلزم مستقبلًا تصميم واجهة مصرح بها أو مراجعة جلسة موثقة؛ لا يوجد تجاوز يدوي لهذا القيد.
+**لوحة Android العائمة:** أضيف مسار للتسجيل والمراجعة أثناء بقاء PUBG في المقدمة، بإذن «الظهور فوق التطبيقات الأخرى» الرسمي والمنفصل. افتح اللوحة من صفحة الأمان بعد بدء الالتقاط؛ تبقى مقفولة حتى يتأكد الحارس تلقائيًا من الوضع الآمن. تستخدم نفس قاعدة البيانات ودورة Backup والموافقة والاختبار. الرجوع إلى واجهة SPIDER AIM الرئيسية يظل يقفل نماذجها. انظر [طريقة استخدام اللوحة وحدودها](docs/OVERLAY.md)؛ اختبارها على هاتف فعلي ما زال مطلوبًا.
 
 التعرف الحالي تحفظي ولم يُعتمد بعد على مصفوفة حقيقية من الأجهزة وتخطيطات HUD ولغات PUBG. العربية والتخطيطات غير المدعومة تبقى `UNKNOWN_BLOCKED`. التعرف على الوضع لا يعني تحليل Aim أو وفاة آليًا من الفيديو.
 
@@ -113,6 +115,8 @@ APK المبني مخصص للتجربة والتثبيت الجانبي وفق 
 
 SPIDER AIM is a local Flutter aim-and-control calibration coach for physical Android phones/tablets and iPhone/iPad. The default policy is `NON_GYRO`, `TOUCH_ONLY`, gyroscope disabled, and ADS gyroscope disabled. Android is the first intended build-validation target.
 
+An optional Android floating panel was added to address foreground interaction. Fresh validation for that addition is pending; the previous verified build below predates it.
+
 **Verification status:** revision `5f00646930609e82e3c044cd2bcc5cdfcc5dd84d` passed analysis with no issues and **184 tests**, built a **63.3 MB APK**, and passed native capture safety tests in the [successful 2026-10-08 run](https://github.com/abbady110/spider-aim-/actions/runs/37723093465). An audit of the built APK confirmed that `INTERNET` and `ACCESS_NETWORK_STATE` permissions are absent. [Download the current APK](https://github.com/abbady110/spider-aim-/actions/runs/37723093465/artifacts/11526707072). Real-device capture, PUBG HUD/layout validation, and measured gameplay improvement remain outstanding. See [Verification](docs/VERIFICATION.md) and the interaction limitations below.
 
 The source implements an Arabic RTL dark interface, per-device profiles, official-API device/battery/thermal observations, weapon/scope/attachment/distance calibration contexts, evidence-based recommendations, movement/throwables review, death and hit-registration differential diagnostics, battery reports, and a local SQLite-backed settings-version workflow.
@@ -129,7 +133,7 @@ Proposal notices remain in-app; the separate Android foreground-service notifica
 
 Every change follows `Measure → Diagnose → Propose → Approve for test → Backup → Testing → Compare → Final approval`. The approved snapshot remains protected while a candidate is being tested. A candidate cannot become final without recorded comparison results and the player's explicit final approval. Every mutable workflow operation rechecks the automatic guard, including inside its transaction; revoked capture blocks final approval. Crash recovery retains the approved version, candidate, and previous backup.
 
-**Current interaction limitation:** returning to SPIDER AIM closes the form guard because PUBG is no longer verified in the foreground. An interactive settings-write flow while PUBG stays foreground is not implemented. A future authorized overlay or verified session-review design is required; manual mode labels cannot bypass this limitation.
+**Android floating panel:** an optional official overlay now provides entry/review forms while PUBG remains foreground. Its separate special-access permission cannot unlock the guard. The panel uses the existing controller and SQLite workflow, including backups, trial consent, actual test comparison, and final approval. Returning to the main SPIDER AIM activity still locks its forms. Native window/keyboard/HUD behavior requires physical-device validation; see [Overlay usage and boundaries](docs/OVERLAY.md).
 
 PUBG offers no settings integration in this project. Enter your actual current settings first, and manually apply or restore displayed values in PUBG's official settings UI. Backups contain the complete settings snapshot recorded in SPIDER AIM; they cannot copy unobservable PUBG files. Restore is immediate for SPIDER AIM records and manual for PUBG itself.
 

@@ -56,6 +56,7 @@ allowed_permissions = {
     "android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION",
     "android.permission.POST_NOTIFICATIONS",
     "android.permission.PACKAGE_USAGE_STATS",
+    "android.permission.SYSTEM_ALERT_WINDOW",
 }
 required_network_removals = {
     "android.permission.INTERNET",

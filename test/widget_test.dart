@@ -6,6 +6,7 @@ import 'package:spider_aim/capture/capture_service.dart';
 import 'package:spider_aim/core/coach_controller.dart';
 import 'package:spider_aim/device/device_service.dart';
 import 'package:spider_aim/game_mode_guard/game_mode_guard.dart';
+import 'package:spider_aim/overlay/overlay_service.dart';
 import 'package:spider_aim/storage/coach_store.dart';
 import 'package:spider_aim/ui/app.dart';
 import 'package:spider_aim/ui/forms.dart';
@@ -47,6 +48,14 @@ class _UnavailableCapture extends CaptureService {
 
   @override
   Future<void> requestUsageAccess() async {}
+}
+
+class _UnavailableOverlay extends OverlayService {
+  const _UnavailableOverlay();
+  @override
+  Future<Map<String, Object?>> capabilities() async => {'supported': false, 'permissionGranted': false};
+  @override
+  Future<void> hide() async {}
 }
 
 class _CaptureEventStream extends Stream<Map<String, dynamic>> {
@@ -168,6 +177,7 @@ Future<CoachController> _controller({bool supported = true, CaptureService? capt
     deviceService: _Device(supported: supported),
     gameModeGuard: GameModeGuard(now: () => recognitionFixtureTime),
     captureService: capture ?? const _UnavailableCapture(),
+    overlayService: const _UnavailableOverlay(),
   );
   await controller.initialize();
   return controller;
@@ -217,6 +227,7 @@ void main() {
     final controller = CoachController(
       store: MemoryCoachStore(), deviceService: const _FailingDevice(),
       captureService: const _UnavailableCapture(),
+      overlayService: const _UnavailableOverlay(),
     );
     await controller.initialize();
     addTearDown(controller.dispose);

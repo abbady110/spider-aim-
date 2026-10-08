@@ -263,12 +263,13 @@ class AimCalibrationEngine {
     if (over < threshold && under < threshold) {
       return null;
     }
+    // PUBG's percentage ADS controls use whole points. Do not recommend an
+    // unenterable decimal or infer control precision from a fractional import.
+    if (currentAds != currentAds.roundToDouble()) return null;
     final decreasing = over >= threshold;
-    final rawProposal = (currentAds * (decreasing ? .95 : 1.05)).clamp(1.0, 400.0);
-    // Round toward the existing setting so rounding cannot exceed the 5% cap.
-    final proposed = (decreasing ? (rawProposal * 100).ceil() :
-      (rawProposal * 100).floor()) / 100;
-    if ((proposed - currentAds).abs() < .01) {
+    final step = (currentAds * .05).clamp(1.0, 20.0).floorToDouble();
+    final proposed = (currentAds + (decreasing ? -step : step)).clamp(1.0, 400.0).toDouble();
+    if (proposed == currentAds) {
       return null;
     }
     final evidenceCount = decreasing ? over : under;
@@ -276,7 +277,7 @@ class AimCalibrationEngine {
       proposedAds: proposed,
       evidenceCount: evidenceCount, sampleCount: samples.length,
       problem: decreasing ? 'تجاوز الهدف المتكرر' : 'التوقف قبل الهدف المتكرر',
-      reason: 'ظهر نمط متكرر في نفس السلاح والسكوب والملحقات والمسافة؛ تجربة محدودة بخمسة بالمئة.',
+      reason: 'ظهر نمط متكرر في نفس السلاح والسكوب والملحقات والمسافة؛ تجربة بخطوة صحيحة صغيرة ضمن حد 5٪ وبحد أدنى نقطة.',
       evidence: '$evidenceCount/${samples.length} ملاحظات؛ مصدرها مدخلات المستخدم أو قياسات موثقة، وليست قراءة لسيرفر اللعبة. '
         '${samples.any((s) => s.packetLossPercent == null) ? 'فقد الحزم UNKNOWN؛ لا يستبعد الاقتراح سببًا غير مقاس.' : ''}',
       expectedEffect: decreasing ? 'قد يقل تجاوز الهدف مع تحسن الثبات؛ يلزم قياس جديد.' : 'قد يتحسن الوصول إلى الهدف؛ يلزم قياس جديد.',

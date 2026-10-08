@@ -56,6 +56,80 @@ class _RecognitionPanelState extends State<RecognitionPanel> {
     }
   }
 
+  Widget _controls({
+    required CoachController controller,
+    required bool captureSupported,
+    required bool usageGranted,
+    required bool overlaySupported,
+    required bool overlayPermission,
+    required bool pending,
+  }) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      const Text('ابدأ التقاط الشاشة بإذن النظام. التحليل محلي دون حفظ صور أو فيديو.',
+        style: TextStyle(color: spiderMuted, height: 1.6)),
+      const SizedBox(height: 10),
+      Wrap(spacing: 10, runSpacing: 10, children: [
+        OutlinedButton.icon(
+          key: const Key('recognition-request-usage'),
+          onPressed: captureSupported && !pending && !controller.captureRunning
+              ? () => _perform(controller.requestUsageAccess) : null,
+          icon: const Icon(Icons.settings_outlined),
+          label: const Text('إذن معرفة التطبيق الأمامي'),
+        ),
+        FilledButton.icon(
+          key: const Key('recognition-start'),
+          // Screen capture does not depend on overlay permission.
+          onPressed: captureSupported && usageGranted && !pending && !controller.captureRunning
+              ? () => _perform(controller.startAutomaticRecognition) : null,
+          icon: const Icon(Icons.screen_share_outlined),
+          label: const Text('بدء التعرف التلقائي'),
+        ),
+        if (controller.captureRunning) OutlinedButton.icon(
+          key: const Key('recognition-stop'),
+          onPressed: pending ? null : () => _perform(controller.stopAutomaticRecognition),
+          icon: const Icon(Icons.stop_circle_outlined),
+          label: const Text('إيقاف التقاط الشاشة'),
+        ),
+      ]),
+      const SizedBox(height: 18),
+      const Text('لوحة المعايرة فوق PUBG',
+        style: TextStyle(fontWeight: FontWeight.bold)),
+      const SizedBox(height: 6),
+      const Text('إذن «الظهور فوق التطبيقات الأخرى» منفصل، ويعرض أزرار SPIDER AIM فقط.',
+        style: TextStyle(color: spiderMuted, height: 1.6)),
+      const SizedBox(height: 10),
+      Wrap(spacing: 10, runSpacing: 10, children: [
+        OutlinedButton.icon(
+          key: const Key('overlay-request-permission'),
+          onPressed: overlaySupported && !pending
+              ? () => _perform(controller.requestOverlayPermission) : null,
+          icon: const Icon(Icons.layers_outlined),
+          label: const Text('إذن الظهور فوق التطبيقات الأخرى'),
+        ),
+        FilledButton.icon(
+          key: const Key('overlay-show'),
+          // Showing a locked bubble never grants calibration permission.
+          onPressed: overlaySupported && overlayPermission && controller.captureRunning &&
+              !controller.overlayVisible && !pending
+              ? () => _perform(controller.showOverlay) : null,
+          icon: const Icon(Icons.picture_in_picture_alt_outlined),
+          label: const Text('إظهار لوحة المعايرة العائمة'),
+        ),
+        if (controller.overlayVisible) OutlinedButton.icon(
+          key: const Key('overlay-hide'),
+          onPressed: pending ? null : () => _perform(controller.hideOverlay),
+          icon: const Icon(Icons.visibility_off_outlined),
+          label: const Text('إخفاء لوحة المعايرة العائمة'),
+        ),
+      ]),
+      if (_requestPending) const Padding(
+        padding: EdgeInsets.only(top: 14), child: LinearProgressIndicator()),
+      const SizedBox(height: 12),
+      const NoticePanel(text: 'بعد إظهار اللوحة افتح PUBG وأبقِه في المقدمة. تبدأ اللوحة مقفولة، وتتاح المعايرة فقط عند تحقق تلقائي حديث من وضع مسموح. إعدادات اللعبة تطبّقها أنت يدويًا؛ الموافقة وBackup والاختبار تبقى إلزامية.'),
+    ],
+  );
+
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller;
@@ -64,6 +138,8 @@ class _RecognitionPanelState extends State<RecognitionPanel> {
     final android = controller.device?.details['platform'] == 'android';
     final supported = android && capabilities['supported'] == true;
     final usageGranted = capabilities['usageAccessGranted'] == true;
+    final overlaySupported = android && controller.overlayCapabilities['supported'] == true;
+    final overlayPermission = controller.overlayCapabilities['permissionGranted'] == true;
     final pending = _requestPending || controller.busy;
     return SpiderCard(child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -76,6 +152,17 @@ class _RecognitionPanelState extends State<RecognitionPanel> {
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
         ]),
         const SizedBox(height: 18),
+        if (widget.showControls) ...[
+          _controls(
+            controller: controller,
+            captureSupported: supported,
+            usageGranted: usageGranted,
+            overlaySupported: overlaySupported,
+            overlayPermission: overlayPermission,
+            pending: pending,
+          ),
+          const Divider(height: 30),
+        ],
         StatusPill(text: modeLabel(decision.mode), good: decision.allowed),
         const SizedBox(height: 10),
         const Text('الحالة المكتشفة', style: TextStyle(color: spiderMuted)),
@@ -101,6 +188,13 @@ class _RecognitionPanelState extends State<RecognitionPanel> {
           Text('${decision.frameCount}', key: const Key('recognition-frame-count')),
         ]),
         DetailRow('التقاط الشاشة', controller.captureRunning ? 'نشط بموافقة النظام' : 'متوقف'),
+        if (widget.showControls) ...[
+          DetailRow('إذن معرفة التطبيق الأمامي', !supported
+              ? 'غير متاح على هذا الجهاز' : usageGranted ? 'ممنوح حسب النظام' : 'لم يُمنح بعد'),
+          DetailRow('إذن اللوحة العائمة', !overlaySupported
+              ? 'غير متاح على هذا الجهاز' : overlayPermission ? 'ممنوح حسب النظام' : 'لم يُمنح بعد'),
+          DetailRow('ظهور لوحة SPIDER AIM', controller.overlayVisible ? 'ظاهرة' : 'مخفية'),
+        ],
         DetailRow('السماح بالمعايرة', decision.allowed ? 'سماح آلي مؤقت من الأدلة الحالية' : 'مقفول'),
         if (decision.sessionId != null) DetailRow('جلسة الالتقاط', decision.sessionId!),
         const Divider(height: 24),
@@ -124,36 +218,6 @@ class _RecognitionPanelState extends State<RecognitionPanel> {
             text: 'قفل تنافسي نشط: لا معايرة أو تحليل لعب أو تجربة إعدادات.'),
         ],
         if (widget.showControls) ...[
-          const SizedBox(height: 18),
-          const NoticePanel(text: 'Android: يحتاج التعرف إذن معرفة التطبيق الأمامي ثم موافقة التقاط الشاشة الرسمية. تُحلّل عينات شاشة PUBG محليًا؛ لا تُحفظ صور أو فيديو ولا تُرسل إلى خادم.'),
-          const SizedBox(height: 14),
-          DetailRow('إذن معرفة التطبيق الأمامي', !supported
-              ? 'غير متاح على هذا الجهاز' : usageGranted ? 'ممنوح حسب النظام' : 'لم يُمنح بعد'),
-          Wrap(spacing: 10, runSpacing: 10, children: [
-            OutlinedButton.icon(
-              key: const Key('recognition-request-usage'),
-              onPressed: supported && !pending && !controller.captureRunning
-                  ? () => _perform(controller.requestUsageAccess) : null,
-              icon: const Icon(Icons.settings_outlined),
-              label: const Text('إذن معرفة التطبيق الأمامي'),
-            ),
-            FilledButton.icon(
-              key: const Key('recognition-start'),
-              onPressed: supported && usageGranted && !pending && !controller.captureRunning
-                  ? () => _perform(controller.startAutomaticRecognition) : null,
-              icon: const Icon(Icons.screen_search_desktop_outlined),
-              label: const Text('بدء التعرف التلقائي'),
-            ),
-            OutlinedButton.icon(
-              key: const Key('recognition-stop'),
-              onPressed: controller.captureRunning && !pending
-                  ? () => _perform(controller.stopAutomaticRecognition) : null,
-              icon: const Icon(Icons.stop_circle_outlined),
-              label: const Text('إيقاف التقاط الشاشة'),
-            ),
-          ]),
-          if (_requestPending) const Padding(
-            padding: EdgeInsets.only(top: 14), child: LinearProgressIndicator()),
           const SizedBox(height: 16),
           if (!android)
             const NoticePanel(warning: true,

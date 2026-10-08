@@ -2,9 +2,13 @@
 
 Current source review date: **2026-10-08 (UTC)**.
 
+## Floating-panel revision: verification pending
+
+The authorized Android floating panel has been added to address the foreground interaction gap. Its new Dart/native/permission/UI tests and APK build require a fresh CI run. The verified results below belong to code revision `5f006469` before the panel was added; they do not establish compilation or device behavior of the new panel. Current offline structural checks pass, but physical-device overlay/keyboard/secure-capture acceptance has not been run.
+
 نجح CI لتعديلات الحارس التلقائي والتقاط Android: التحليل بلا مشكلات، و**184 اختبارًا** ناجحًا، وAPK بحجم **63.3 MB**، واختبارات الالتقاط الأصلية، وفحص أذونات APK المبني. يخص ذلك الشيفرة `5f00646930609e82e3c044cd2bcc5cdfcc5dd84d` في [التشغيل 37723093465](https://github.com/abbady110/spider-aim-/actions/runs/37723093465)، المكتمل في **2026-10-08 الساعة 03:37:32 UTC**. هذه النتائج لا تثبت دقة التعرف على أجهزة فعلية أو تحسن اللعب.
 
-## Current automatic-recognition revision
+## Verified automatic-recognition baseline before the floating panel
 
 | Check | Current status |
 | --- | --- |
@@ -125,6 +129,6 @@ Validate installation on an ARM Android phone and tablet, screen-capture consent
 
 Also validate official device readings, durable approved/trial/backup retention, manual apply/restore instructions, and Arabic layout with large text. Measure SPIDER AIM's capture CPU/battery overhead and reliable game-FPS impact. Confirm stability and observed-hit improvements with repeated player trials. Automated tests cannot establish those gameplay outcomes or confirm server hit registration.
 
-Current interaction limitation: returning to SPIDER AIM closes the form guard, so interactive writes while PUBG remains verified foreground are not implemented. An authorized overlay or verified session-review interaction is future work and must not introduce a manual authorization bypass.
+Returning to the main SPIDER AIM activity still closes its forms. The new optional Android panel uses the existing guarded workflow while PUBG remains foreground; native window/keyboard/secure-capture behavior still requires physical-device testing. See [Overlay](OVERLAY.md).
 
 نجحت نتائج CI الحالية للتحليل و184 اختبارًا وبناء APK واختبارات الالتقاط الأصلية وفحص أذونات APK. قسم 111 اختبارًا محفوظ كسجل للنسخة السابقة فقط. ما زالت تجارب الأجهزة وواجهات PUBG الفعلية مطلوبة، ولا يوجد حاليًا التقاط PUBG عبر التطبيقات على iOS. لا تثبت اختبارات الوحدة تحسن ثبات التصويب أو Hit Registration أثناء اللعب، ويبقى قيد التفاعل عند الرجوع إلى SPIDER AIM قائمًا.

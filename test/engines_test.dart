@@ -147,10 +147,18 @@ void main() {
         List.generate(5, (i) => _sample(i, overshoot: 10, undershoot: 40)), currentAds: 100)!;
       expect(proposal.proposedAds, 105);
     });
-    test('rounding never increases an experiment beyond the five percent limit', () {
-      final proposal = AimCalibrationEngine(guard).suggestAds(_samples(), currentAds: 1.17)!;
-      expect(proposal.delta.abs(), lessThanOrEqualTo(1.17 * .05));
-      expect(proposal.proposedAds, lessThan(proposal.currentAds));
+    test('manual ADS proposal is a whole point within the small-step bound', () {
+      final proposal = AimCalibrationEngine(guard).suggestAds(_samples(), currentAds: 31)!;
+      expect(proposal.proposedAds, 30);
+      expect(proposal.delta.abs(), lessThanOrEqualTo(31 * .05));
+    });
+    test('fractional imported ADS does not invent official control precision', () {
+      expect(AimCalibrationEngine(guard).suggestAds(_samples(), currentAds: 1.17), isNull);
+    });
+    test('small integer ADS uses at most the permitted one-point minimum', () {
+      final proposal = AimCalibrationEngine(guard).suggestAds(_samples(), currentAds: 5)!;
+      expect(proposal.proposedAds, 4);
+      expect(proposal.delta.abs(), 1);
     });
     test('network, jitter, thermal, unknown and FPS confounders suppress ADS proposals', () {
       final confoundedSets = [

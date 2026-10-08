@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'core/coach_controller.dart';
 import 'storage/sqlite_coach_store.dart';
+import 'overlay/overlay_bridge.dart';
 import 'ui/app.dart';
 
 Future<void> main() async {
@@ -9,6 +10,9 @@ Future<void> main() async {
     final store = await SqliteCoachStore.open();
     final controller = CoachController(store: store);
     await controller.initialize();
+    final overlayBridge = OverlayBridge(controller);
+    overlayBridge.attach();
+    controller.disposeOverlayBridge = overlayBridge.dispose;
     runApp(SpiderAimApp(controller: controller));
   } catch (_) {
     // Never fall back to a volatile store after a database/open failure.

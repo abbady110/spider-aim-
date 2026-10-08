@@ -29,7 +29,7 @@ Bundled ML Kit Latin OCR processes low-resolution frames locally at a two-second
 
 No cross-app capture is implemented on iOS. The guard stays closed until a future ReplayKit Broadcast Upload Extension, Apple provisioning, and appropriate validation provide a legitimate source. Manual buttons cannot replace missing platform support.
 
-Returning to SPIDER AIM closes the form guard. The current app cannot provide interactive settings writes while simultaneously verifying PUBG as foreground. This requires a future authorized overlay/session-review design; convenience cannot justify a manual override.
+Returning to the main SPIDER AIM activity closes its form guard. The optional Android floating panel uses explicit official overlay special access while PUBG remains foreground. Native session/temporal/foreground proof and the Dart guard authorize every action; permission alone never unlocks it. Secure overlay contents cannot become OCR evidence. Revocation closes forms and prevents submission. The existing controller remains the sole workflow/database writer; no game input is injected. See [Overlay](OVERLAY.md) for usage and physical-device acceptance requirements.
 
 ## Test expectations
 
