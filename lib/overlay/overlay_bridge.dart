@@ -552,7 +552,9 @@ class OverlayBridge {
     for (final row in _rows(_state['observations'])) {
       final data = _map(row['data']);
       if (row['kind'] != 'aim' || data['context'] != context ||
-          row['approvedVersion'] != approved['number'] || row['testingId'] != null) continue;
+          row['approvedVersion'] != approved['number'] || row['testingId'] != null) {
+        continue;
+      }
       final metrics = _map(data['metrics']);
       final details = _map(data['aimDetails']);
       double? number(Map<String, dynamic> source, String key) {
